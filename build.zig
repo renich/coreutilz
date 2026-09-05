@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
         "nproc", "hostid", "unlink", "dirname", "basename", "printenv", "pwd",  "readlink",
         "mkdir", "rmdir",  "rm",     "link",    "yes",      "sleep",    "sync", "env",
         "cp",    "mv",     "chmod",  "ln",      "stat",     "dd",       "head", "wc",
-        "tee",   "truncate", "touch",
+        "tee",   "truncate", "touch", "cut",
     };
 
     const needs_libc = [_][]const u8{
