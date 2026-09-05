@@ -20,10 +20,10 @@ in ``src/commands/``.
 
 - **Zig version**: 0.16.0
 - **Build**: passes (``zig build`` exits 0 for all 33 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 33/33 (359/359 tests passing, 100% pass rate)
+- **Target Commands Completed**: 34/34 (371/371 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 33 Ported Commands (100% Passing Tests):
+### 34 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -57,11 +57,7 @@ in ``src/commands/``.
 31. ``head`` (17/17)
 32. ``wc`` (16/16)
 33. ``tee`` (9/9)
-- **shred.zig**: wrong output file size
-- **basenc.zig**: base64url wrong output
-- **pathchk.zig**: ``-P`` and invalid char detection broken
-- **truncate_test.zig**: segfault/double-free
-- **cksum.zig**: wrong checksum
+34. ``truncate`` (12/12)
 - **ptx.zig**: ``-w`` and ``-r`` options broken
 - **stdbuf.zig**: exits 125
 - **chown_test.zig**: invalid user error message wrong
