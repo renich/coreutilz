@@ -1,0 +1,106 @@
+const std = @import("std");
+const errors = @import("../utils/errors.zig");
+const c = @cImport({
+    @cInclude("unistd.h");
+    @cInclude("stdlib.h");
+});
+
+pub const name: []const u8 = "nproc";
+pub const version: []const u8 = "0.1.0";
+
+fn getOmpNumThreads() ?u32 {
+    const val = c.getenv("OMP_NUM_THREADS") orelse return null;
+    const s = std.mem.span(val);
+    if (s.len == 0) return null;
+    const first_token = if (std.mem.indexOfScalar(u8, s, ',')) |idx| s[0..idx] else s;
+    const num = std.fmt.parseInt(u32, first_token, 10) catch return null;
+    if (num == 0) return null;
+    return num;
+}
+
+fn getOmpThreadLimit() ?u32 {
+    const val = c.getenv("OMP_THREAD_LIMIT") orelse return null;
+    const s = std.mem.span(val);
+    if (s.len == 0) return null;
+    const num = std.fmt.parseInt(u32, s, 10) catch return null;
+    if (num == 0) return null;
+    return num;
+}
+
+pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
+    var stdout_buffer: [4096]u8 = undefined;
+    var stderr_buffer: [4096]u8 = undefined;
+    var stdout_writer: std.Io.File.Writer = .init(.stdout(), std.Options.debug_io, &stdout_buffer);
+    var stderr_writer: std.Io.File.Writer = .init(.stderr(), std.Options.debug_io, &stderr_buffer);
+    const stdout = &stdout_writer.interface;
+    const stderr = &stderr_writer.interface;
+    defer stdout.flush() catch {};
+    defer stderr.flush() catch {};
+
+    var all_cpus = false;
+    var ignore_count: u32 = 0;
+
+    for (args[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--help")) {
+            try printHelp(stdout);
+            return 0;
+        } else if (std.mem.eql(u8, arg, "--version")) {
+            try printVersion(stdout);
+            return 0;
+        } else if (std.mem.eql(u8, arg, "--all")) {
+            all_cpus = true;
+        } else if (std.mem.startsWith(u8, arg, "--ignore=")) {
+            const num_str = arg["--ignore=".len..];
+            ignore_count = std.fmt.parseInt(u32, num_str, 10) catch {
+                try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid number '{s}'", .{num_str}));
+                return 1;
+            };
+        } else if (std.mem.startsWith(u8, arg, "-")) {
+            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "unrecognized option '{s}'", .{arg}));
+            return 1;
+        }
+    }
+
+    const conf = if (all_cpus) c._SC_NPROCESSORS_CONF else c._SC_NPROCESSORS_ONLN;
+    var cpu_count = c.sysconf(conf);
+    if (cpu_count < 1) {
+        // Fallback to 1 if sysconf fails
+        cpu_count = 1;
+    }
+
+    var result: u32 = @as(u32, @intCast(cpu_count));
+    if (!all_cpus) {
+        if (getOmpNumThreads()) |omp_threads| {
+            result = omp_threads;
+        }
+        if (getOmpThreadLimit()) |omp_limit| {
+            result = @min(result, omp_limit);
+        }
+    }
+
+    if (result > ignore_count) {
+        result -= ignore_count;
+    } else {
+        result = 1;
+    }
+
+    try stdout.print("{d}\n", .{result});
+    return 0;
+}
+
+pub fn printHelp(writer: anytype) !void {
+    try writer.writeAll(
+        \\Usage: nproc [OPTION]...
+        \\Print the number of processing units available.
+        \\
+        \\      --all       print the number of installed CPUs
+        \\      --ignore=N  if possible, exclude N processing units
+        \\      --help      display this help and exit
+        \\      --version   output version information and exit
+        \\
+    );
+}
+
+pub fn printVersion(writer: anytype) !void {
+    try errors.printVersion(writer, name, version);
+}

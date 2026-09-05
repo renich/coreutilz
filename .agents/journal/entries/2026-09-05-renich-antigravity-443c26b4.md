@@ -1,0 +1,7 @@
+# Journal: 2026-09-05 (antigravity-443c26b4)
+==============================
+
+* [2026-09-05 06:47:42] [antigravity-443c26b4] [init,setup,discovery] [prev:0000000000000000000000000000000000000000000000000000000000000000] [hash:5aa30011fef365906edf3acc4c8bcd456280a4a5de6a11b78f709fff0eaafd25] INIT: Initialized PJP in coreutilz repository. Identified Zig 0.16 toolchain divergence and uninitialized git repo.
+* [2026-09-05 06:55:28] [antigravity-443c26b4] [arch,zig-0.16,io] [prev:5aa30011fef365906edf3acc4c8bcd456280a4a5de6a11b78f709fff0eaafd25] [hash:3cf976c518c7c150a36960aa37a9deb28964962bae9a07b8c65aa61ded53491f] DEC: Adapting coreutilz to Zig 0.16.0 std.Io architecture. Providing fs.cwd() and Io.File.Writer patterns to restore clean compilation and hermetic test execution across all 30 commands.
+* [2026-09-05 07:28:21] [antigravity-443c26b4] [GOT] [prev:3cf976c518c7c150a36960aa37a9deb28964962bae9a07b8c65aa61ded53491f] [hash:dbd31f7252c528dc0c9a1ae55c221867b49411d2fcc20c2f392eec5e3393bea5] GOT: Zig 0.16.0 Io.File.Writer defaults to positional mode (pwrite offset 0); initStreaming is required for sequential/streaming writes. All 30 ported commands verified passing 100% (317/317 tests).
+* [2026-09-05 07:28:22] [antigravity-443c26b4] [DEC] [prev:dbd31f7252c528dc0c9a1ae55c221867b49411d2fcc20c2f392eec5e3393bea5] [hash:ae13e503310a80db5f47c23cbfa5d0d175b2f963ccc5d5c68e5b4aadea0955df] DEC: Scope build.zig test_files to the 30 implemented commands. Non-implemented command test skeletons in tests/ will be added to build.zig as each command is ported.
