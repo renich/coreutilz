@@ -15,7 +15,7 @@ test "head basic (default 10 lines)" {
 
     // Create a test file with 15 lines
     var buffer: [100]u8 = undefined;
-    var content: std.ArrayList(u8) = .{};
+    var content: std.ArrayList(u8) = .empty;
     defer content.deinit(allocator);
     var i: usize = 1;
     while (i <= 15) : (i += 1) {
@@ -34,7 +34,7 @@ test "head basic (default 10 lines)" {
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
 
-    var expected: std.ArrayList(u8) = .{};
+    var expected: std.ArrayList(u8) = .empty;
     defer expected.deinit(allocator);
     i = 1;
     while (i <= 10) : (i += 1) {
@@ -211,6 +211,170 @@ test "head nonexistent file" {
     defer allocator.free(binary_path);
 
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "nonexistent.txt" }, null);
+    defer result.deinit();
+
+    try testing.expect(result.exit_code != 0);
+}
+
+test "head reads stdin by default" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "2" }, "line 1\nline 2\nline 3\n");
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("line 1\nline 2\n", result.stdout);
+}
+
+test "head reads stdin with - operand" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "1", "-" }, "alpha\nbeta\n");
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("alpha\n", result.stdout);
+}
+
+test "head -n negative elides tail lines" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("file.txt", "1\n2\n3\n4\n5\n");
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "file.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "-2", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("1\n2\n3\n", result.stdout);
+}
+
+test "head -c negative elides tail bytes" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("file.txt", "hello world");
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "file.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-c", "-6", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("hello", result.stdout);
+}
+
+test "head -z zero-terminated" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("zero.txt", "rec1\x00rec2\x00rec3\x00");
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "zero.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-z", "-n", "2", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("rec1\x00rec2\x00", result.stdout);
+}
+
+test "head obsolete -NUM syntax" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("lines.txt", "1\n2\n3\n4\n5\n");
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "lines.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-3", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("1\n2\n3\n", result.stdout);
+}
+
+test "head -c multiplier suffix (1K)" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    var big_buf: [2048]u8 = undefined;
+    @memset(&big_buf, 'x');
+    try ctx.writeFile("big.txt", &big_buf);
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "big.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-c", "1K", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqual(@as(usize, 1024), result.stdout.len);
+}
+
+test "head invalid count exits 1" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "head");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "invalid" }, null);
     defer result.deinit();
 
     try testing.expect(result.exit_code != 0);

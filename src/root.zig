@@ -34,6 +34,7 @@ pub const ln_cmd = @import("commands/ln.zig");
 // pub const chgrp_cmd = @import("commands/chgrp.zig");
 pub const stat_cmd = @import("commands/stat.zig");
 pub const dd_cmd = @import("commands/dd.zig");
+pub const head_cmd = @import("commands/head.zig");
 
 // Utility modules
 pub const utils = struct {

@@ -19,11 +19,11 @@ in ``src/commands/``.
 ## Current State (2026-09-05)
 
 - **Zig version**: 0.16.0
-- **Build**: passes (``zig build`` exits 0 for all 30 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 30/30 (317/317 tests passing, 100% pass rate)
+- **Build**: passes (``zig build`` exits 0 for all 31 binaries + multicall ``coreutilz``)
+- **Target Commands Completed**: 31/31 (334/334 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 30 Ported Commands (100% Passing Tests):
+### 31 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -54,6 +54,7 @@ in ``src/commands/``.
 28. ``cp`` (12/12)
 29. ``rm`` (12/12)
 30. ``dd`` (22/22)
+31. ``head`` (17/17)
 - **shred.zig**: wrong output file size
 - **basenc.zig**: base64url wrong output
 - **pathchk.zig**: ``-P`` and invalid char detection broken
@@ -179,7 +180,7 @@ These will be documented as explicitly skipped with rationale:
 | fmt       | ✓    | ✓             | 4              | partial               |
 | fold      | ✓    | ✓             | 4              | partial               |
 | groups    | ✓    | ✓             | 3              | needs root            |
-| head      | ✓    | ✓             | 3              | partial               |
+| head      | ✓    | ✓             | 17             | none known            |
 | hostid    | ✓    | ✓             | 1              | none known            |
 | hostname  | ✓    | ✓             | ~2             | none known            |
 | id        | ✓    | ✓             | 7              | partial               |
