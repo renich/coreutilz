@@ -36,6 +36,7 @@ pub const stat_cmd = @import("commands/stat.zig");
 pub const dd_cmd = @import("commands/dd.zig");
 pub const head_cmd = @import("commands/head.zig");
 pub const wc_cmd = @import("commands/wc.zig");
+pub const tee_cmd = @import("commands/tee.zig");
 
 // Utility modules
 pub const utils = struct {

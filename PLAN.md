@@ -19,11 +19,11 @@ in ``src/commands/``.
 ## Current State (2026-09-05)
 
 - **Zig version**: 0.16.0
-- **Build**: passes (``zig build`` exits 0 for all 32 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 32/32 (350/350 tests passing, 100% pass rate)
+- **Build**: passes (``zig build`` exits 0 for all 33 binaries + multicall ``coreutilz``)
+- **Target Commands Completed**: 33/33 (359/359 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 32 Ported Commands (100% Passing Tests):
+### 33 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -56,6 +56,7 @@ in ``src/commands/``.
 30. ``dd`` (22/22)
 31. ``head`` (17/17)
 32. ``wc`` (16/16)
+33. ``tee`` (9/9)
 - **shred.zig**: wrong output file size
 - **basenc.zig**: base64url wrong output
 - **pathchk.zig**: ``-P`` and invalid char detection broken
@@ -226,7 +227,7 @@ These will be documented as explicitly skipped with rationale:
 | sync      | ✓    | ✓             | ~2             | none known            |
 | tac       | ✓    | ✓             | 3              | -r ordering wrong     |
 | tail      | ✓    | ✓             | 36             | partial               |
-| tee       | ✓    | ✓             | 2              | partial               |
+| tee       | ✓    | ✓             | 9              | none known            |
 | test      | ✓    | ✓             | 2              | partial               |
 | timeout   | ✓    | ✓             | 4              | skipped               |
 | touch     | ✓    | ✓             | 15             | partial               |

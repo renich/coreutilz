@@ -142,3 +142,61 @@ test "tee --version" {
     try testing.expectEqual(@as(u8, 0), result.exit_code);
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "tee"));
 }
+
+test "tee - operand writes to stdout" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "tee");
+    defer allocator.free(binary_path);
+
+    const input = "dash test\n";
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-" }, input);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings(input, result.stdout);
+}
+
+test "tee empty input creates empty file" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "tee");
+    defer allocator.free(binary_path);
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const output_file = "empty.txt";
+    const full_output_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, output_file });
+    defer allocator.free(full_output_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, full_output_path }, "");
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("", result.stdout);
+
+    const file_content = try ctx.readFile(output_file);
+    defer allocator.free(file_content);
+    try testing.expectEqualStrings("", file_content);
+}
+
+test "tee invalid option exits 1" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "tee");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--invalid-opt" }, null);
+    defer result.deinit();
+
+    try testing.expect(result.exit_code != 0);
+}
