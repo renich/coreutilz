@@ -111,6 +111,8 @@ fn dispatch(command: []const u8, args: [][]const u8) !u8 {
         return try coreutilz.cut_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "paste")) {
         return try coreutilz.paste_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "seq")) {
+        return try coreutilz.seq_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;

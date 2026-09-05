@@ -20,10 +20,10 @@ in ``src/commands/``.
 
 - **Zig version**: 0.16.0
 - **Build**: passes (``zig build`` exits 0 for all 33 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 37/37 (405/405 tests passing, 100% pass rate)
+- **Target Commands Completed**: 38/38 (418/418 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 37 Ported Commands (100% Passing Tests):
+### 38 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -61,6 +61,7 @@ in ``src/commands/``.
 35. ``touch`` (14/14)
 36. ``cut`` (11/11)
 37. ``paste`` (9/9)
+38. ``seq`` (13/13)
 - **ptx.zig**: ``-w`` and ``-r`` options broken
 - **stdbuf.zig**: exits 125
 - **chown_test.zig**: invalid user error message wrong
@@ -79,7 +80,6 @@ Implement the command first, then port its tests.
 | split    | 15    | Medium   |
 | du       | 29    | Medium   |
 | df       | 14    | Medium   |
-| seq      | 6     | Medium   |
 | tac      | 3     | Medium   |
 | uniq     | 2     | Medium   |
 | od       | 7     | Low      |
@@ -207,7 +207,7 @@ These will be documented as explicitly skipped with rationale:
 | rm        | ✓    | ✓             | 47             | none known            |
 | rmdir     | ✓    | ✓             | 4              | -p slash, --ignore    |
 | runcon    | ✓    | ✓             | 2              | needs SELinux         |
-| seq       | ✓    | ✓             | 6              | partial               |
+| seq       | ✓    | ✓             | 6              | none known            |
 | shred     | ✓    | ✓             | 4              | wrong file size       |
 | shuf      | ✓    | ✓             | 2              | partial               |
 | sleep     | ✓    | ✓             | ~3             | none known            |

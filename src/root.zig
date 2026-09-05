@@ -41,6 +41,7 @@ pub const truncate_cmd = @import("commands/truncate.zig");
 pub const touch_cmd = @import("commands/touch.zig");
 pub const cut_cmd = @import("commands/cut.zig");
 pub const paste_cmd = @import("commands/paste.zig");
+pub const seq_cmd = @import("commands/seq.zig");
 
 // Utility modules
 pub const utils = struct {
