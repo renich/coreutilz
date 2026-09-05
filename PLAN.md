@@ -20,10 +20,10 @@ in ``src/commands/``.
 
 - **Zig version**: 0.16.0
 - **Build**: passes (``zig build`` exits 0 for all 33 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 36/36 (396/396 tests passing, 100% pass rate)
+- **Target Commands Completed**: 37/37 (405/405 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 36 Ported Commands (100% Passing Tests):
+### 37 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -60,6 +60,7 @@ in ``src/commands/``.
 34. ``truncate`` (12/12)
 35. ``touch`` (14/14)
 36. ``cut`` (11/11)
+37. ``paste`` (9/9)
 - **ptx.zig**: ``-w`` and ``-r`` options broken
 - **stdbuf.zig**: exits 125
 - **chown_test.zig**: invalid user error message wrong
@@ -76,7 +77,6 @@ Implement the command first, then port its tests.
 | sort     | 23    | High     |
 | tail     | 36    | High     |
 | split    | 15    | Medium   |
-| paste    | 1     | Medium   |
 | du       | 29    | Medium   |
 | df       | 14    | Medium   |
 | seq      | 6     | Medium   |
