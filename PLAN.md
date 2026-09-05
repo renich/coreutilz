@@ -19,11 +19,11 @@ in ``src/commands/``.
 ## Current State (2026-09-05)
 
 - **Zig version**: 0.16.0
-- **Build**: passes (``zig build`` exits 0 for all 31 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 31/31 (334/334 tests passing, 100% pass rate)
+- **Build**: passes (``zig build`` exits 0 for all 32 binaries + multicall ``coreutilz``)
+- **Target Commands Completed**: 32/32 (350/350 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 31 Ported Commands (100% Passing Tests):
+### 32 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -55,6 +55,7 @@ in ``src/commands/``.
 29. ``rm`` (12/12)
 30. ``dd`` (22/22)
 31. ``head`` (17/17)
+32. ``wc`` (16/16)
 - **shred.zig**: wrong output file size
 - **basenc.zig**: base64url wrong output
 - **pathchk.zig**: ``-P`` and invalid char detection broken
@@ -239,7 +240,7 @@ These will be documented as explicitly skipped with rationale:
 | unlink    | ✓    | ✓             | ~2             | none known            |
 | users     | ✓    | ✓             | ~1             | partial               |
 | vdir      | ✓    | ✓             | ~1             | partial               |
-| wc        | ✓    | ✓             | 6              | partial               |
+| wc        | ✓    | ✓             | 16             | none known            |
 | whoami    | ✓    | ✓             | ~1             | none known            |
 | yes       | ✓    | ✓             | ~2             | minor memory leak     |
 

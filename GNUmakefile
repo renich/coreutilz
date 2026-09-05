@@ -7,7 +7,7 @@ BUILD_DIR := zig-out
 BIN_DIR := $(BUILD_DIR)/bin
 COMMANDS := true false echo cat hostname logname tty whoami nproc hostid \
             unlink dirname basename printenv pwd readlink mkdir rmdir rm \
-            link yes sleep sync env cp mv chmod ln stat dd head
+            link yes sleep sync env cp mv chmod ln stat dd head wc
 
 # Default target
 .PHONY: all

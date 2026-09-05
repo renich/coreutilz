@@ -99,6 +99,8 @@ fn dispatch(command: []const u8, args: [][]const u8) !u8 {
         return try coreutilz.dd_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "head")) {
         return try coreutilz.head_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "wc")) {
+        return try coreutilz.wc_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
