@@ -20,10 +20,10 @@ in ``src/commands/``.
 
 - **Zig version**: 0.16.0
 - **Build**: passes (``zig build`` exits 0 for all 33 binaries + multicall ``coreutilz``)
-- **Target Commands Completed**: 34/34 (371/371 tests passing, 100% pass rate)
+- **Target Commands Completed**: 35/35 (385/385 tests passing, 100% pass rate)
 - **Formatting**: passes (``zig fmt --check src/ tests/`` clean)
 
-### 34 Ported Commands (100% Passing Tests):
+### 35 Ported Commands (100% Passing Tests):
 1. ``true`` (5/5)
 2. ``false`` (5/5)
 3. ``basename`` (12/12)
@@ -58,6 +58,7 @@ in ``src/commands/``.
 32. ``wc`` (16/16)
 33. ``tee`` (9/9)
 34. ``truncate`` (12/12)
+35. ``touch`` (14/14)
 - **ptx.zig**: ``-w`` and ``-r`` options broken
 - **stdbuf.zig**: exits 125
 - **chown_test.zig**: invalid user error message wrong

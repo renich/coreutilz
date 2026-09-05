@@ -14,13 +14,13 @@ pub fn build(b: *std.Build) void {
         "nproc", "hostid", "unlink", "dirname", "basename", "printenv", "pwd",  "readlink",
         "mkdir", "rmdir",  "rm",     "link",    "yes",      "sleep",    "sync", "env",
         "cp",    "mv",     "chmod",  "ln",      "stat",     "dd",       "head", "wc",
-        "tee",   "truncate",
+        "tee",   "truncate", "touch",
     };
 
     const needs_libc = [_][]const u8{
         "hostname", "logname",  "tty", "whoami", "nproc", "hostid", "sync", "env",
         "printenv", "sleep",    "pwd", "cp",     "mv",    "chmod",  "ln",   "stat",
-        "dd",       "readlink", "rm",
+        "dd",       "readlink", "rm",  "touch",
     };
 
     const install_step = b.getInstallStep();

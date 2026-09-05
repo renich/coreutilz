@@ -3,5 +3,5 @@
   "pjp_version": "0.9.0",
   "active_track": "Phase 2: Porting Text Processing Commands",
   "toolchain": "zig-0.16.0",
-  "status": "33/33 commands ported (359/359 tests passing)"
+  "status": "35/35 commands ported (385/385 tests passing)"
 }
