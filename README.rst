@@ -3,57 +3,19 @@
    :align: center
    :width: 100%
 
-==========
-Coreutilz
-==========
+|primary| |mirror| |zig| |parity| |tests| |utilities| |size| |license|
 
-------------------------------------------------------------------------------------------------
-The 100% GNU-Compatible Coreutils in Zig. Because You Shouldn't Need 4GB of RAM to Run ``true``.
-------------------------------------------------------------------------------------------------
+.. epigraph::
 
-.. image:: https://img.shields.io/badge/Primary_Repo-GitLab-FC6D26?logo=gitlab&logoColor=white
-   :target: https://gitlab.com/renich/coreutilz
-   :alt: Primary Repository on GitLab
+   🦊 **Canonical Repository**: Coreutilz is developed primarily on **GitLab**: `gitlab.com/renich/coreutilz <https://gitlab.com/renich/coreutilz>`__.
+   The `GitHub repository <https://github.com/renich/coreutilz>`__ is an automated mirror. All active development, issue tracking, merge requests,
+   and CI pipelines take place on GitLab. Please submit all issues and PRs upstream on GitLab.
 
-.. image:: https://img.shields.io/badge/Mirror-GitHub-181717?logo=github&logoColor=white
-   :target: https://github.com/renich/coreutilz
-   :alt: Automated GitHub Mirror
-
-.. image:: https://img.shields.io/badge/Language-Zig%200.16.0-F7A41D?logo=zig&logoColor=white
-   :target: https://ziglang.org/
-   :alt: Zig Version
-
-.. image:: https://img.shields.io/badge/GNU_Parity-100%25_(259%2F259_passed)-22c55e?logo=gnu&logoColor=white
-   :target: https://www.gnu.org/software/coreutils/
-   :alt: Upstream GNU Parity
-
-.. image:: https://img.shields.io/badge/Internal_Tests-408_passed-brightgreen
-   :alt: Internal Tests Passing
-
-.. image:: https://img.shields.io/badge/Utilities-38_native-blue
-   :alt: Implemented Utilities
-
-.. image:: https://img.shields.io/badge/Multicall_Binary-5.7_MB-8a2be2
-   :alt: Multicall Size
-
-.. image:: https://img.shields.io/badge/Dependencies-Zero_(Hermetic)-success
-   :alt: Zero Dependencies
-
-.. image:: https://img.shields.io/badge/Container-Podman%20Ready-892CA0?logo=podman&logoColor=white
-   :alt: Podman Container Ready
-
-.. image:: https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg
-   :target: https://www.gnu.org/licenses/gpl-3.0.html
-   :alt: License GPL-3.0-or-later
-
-.. note::
-   **Canonical Repository Notice**:
-   This project is developed primarily on **GitLab**: `https://gitlab.com/renich/coreutilz <https://gitlab.com/renich/coreutilz>`__.
-   The GitHub repository is an automated mirror. All active development, issue tracking, merge requests,
-   and CI/CD pipelines take place on GitLab. GitHub users should submit issues and PRs upstream on GitLab.
+*The 100% GNU-Compatible Coreutils in Zig. Because you shouldn't need 4GB of RAM to run* ``true``.
 
 .. contents:: Table of Contents
    :depth: 2
+   :backlinks: none
 
 The "Rewrite It In Rust" Delusion
 =================================
@@ -256,3 +218,32 @@ License
 =======
 
 Coreutilz is released under the GNU General Public License v3.0 (GPL-3.0) or later, honoring the copyleft heritage of the original GNU operating system.
+
+.. |primary| image:: https://img.shields.io/badge/Canonical-GitLab-FC6D26?logo=gitlab&logoColor=white
+   :target: https://gitlab.com/renich/coreutilz
+   :alt: Primary Repository on GitLab
+
+.. |mirror| image:: https://img.shields.io/badge/Mirror-GitHub-181717?logo=github&logoColor=white
+   :target: https://github.com/renich/coreutilz
+   :alt: Automated GitHub Mirror
+
+.. |zig| image:: https://img.shields.io/badge/Language-Zig%200.16.0-F7A41D?logo=zig&logoColor=white
+   :target: https://ziglang.org/
+   :alt: Zig Version
+
+.. |parity| image:: https://img.shields.io/badge/GNU_Parity-100%25-22c55e?logo=gnu&logoColor=white
+   :target: https://www.gnu.org/software/coreutils/
+   :alt: Upstream GNU Parity
+
+.. |tests| image:: https://img.shields.io/badge/Tests-408_passed-brightgreen
+   :alt: Internal Tests Passing
+
+.. |utilities| image:: https://img.shields.io/badge/Utilities-38_native-blue
+   :alt: Implemented Utilities
+
+.. |size| image:: https://img.shields.io/badge/Multicall-5.7_MB-8a2be2
+   :alt: Multicall Size
+
+.. |license| image:: https://img.shields.io/badge/License-GPL--3.0-blue.svg
+   :target: https://www.gnu.org/licenses/gpl-3.0.html
+   :alt: License GPL-3.0
