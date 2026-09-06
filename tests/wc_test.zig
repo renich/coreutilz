@@ -309,7 +309,8 @@ test "wc --total=only" {
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "2 total"));
+    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "2"));
+    try testing.expect(!std.mem.containsAtLeast(u8, result.stdout, 1, "total"));
     try testing.expect(!std.mem.containsAtLeast(u8, result.stdout, 1, "f1.txt"));
 }
 

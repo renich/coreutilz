@@ -8,19 +8,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
     });
+    mod.link_libc = true;
 
     const commands = [_][]const u8{
-        "true",  "false",  "echo",   "cat",     "hostname", "logname",  "tty",  "whoami",
-        "nproc", "hostid", "unlink", "dirname", "basename", "printenv", "pwd",  "readlink",
-        "mkdir", "rmdir",  "rm",     "link",    "yes",      "sleep",    "sync", "env",
-        "cp",    "mv",     "chmod",  "ln",      "stat",     "dd",       "head", "wc",
-        "tee",   "truncate", "touch", "cut", "paste", "seq",
-    };
-
-    const needs_libc = [_][]const u8{
-        "hostname", "logname",  "tty", "whoami", "nproc", "hostid", "sync", "env",
-        "printenv", "sleep",    "pwd", "cp",     "mv",    "chmod",  "ln",   "stat",
-        "dd",       "readlink", "rm",  "touch",  "seq",
+        "true",  "false",    "echo",   "cat",     "hostname", "logname",  "tty",  "whoami",
+        "nproc", "hostid",   "unlink", "dirname", "basename", "printenv", "pwd",  "readlink",
+        "mkdir", "rmdir",    "rm",     "link",    "yes",      "sleep",    "sync", "env",
+        "cp",    "mv",       "chmod",  "ln",      "stat",     "dd",       "head", "wc",
+        "tee",   "truncate", "touch",  "cut",     "paste",    "seq",
     };
 
     const install_step = b.getInstallStep();
@@ -38,13 +33,7 @@ pub fn build(b: *std.Build) void {
             }),
         });
 
-        for (needs_libc) |libc_cmd| {
-            if (std.mem.eql(u8, cmd, libc_cmd)) {
-                exe.root_module.link_libc = true;
-                break;
-            }
-        }
-
+        exe.root_module.link_libc = true;
         b.installArtifact(exe);
 
         const cmd_step = b.step(cmd, b.fmt("Build {s}", .{cmd}));
@@ -115,4 +104,9 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_main_tests.step);
     test_step.dependOn(integration_test_step);
+
+    // Lint and static analysis step
+    const lint_step = b.step("lint", "Run linter and static analyzer gates");
+    const lint_cmd = b.addSystemCommand(&.{ "/usr/bin/bash", "scripts/lint.bash" });
+    lint_step.dependOn(&lint_cmd.step);
 }

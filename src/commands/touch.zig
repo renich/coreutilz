@@ -1,9 +1,6 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
-const c = @cImport({
-    @cDefine("_GNU_SOURCE", "1");
-    @cInclude("time.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "touch";
 pub const version: []const u8 = "0.1.0";
@@ -26,16 +23,22 @@ fn errnoDescription(err: std.posix.E) []const u8 {
 }
 
 fn parseRelativeOffset(str: []const u8) ?i64 {
-    const s = std.mem.trim(u8, str, " \t\r\n");
+    var s = std.mem.trim(u8, str, " \t\r\n");
     if (s.len == 0) return null;
 
-    var sign: i64 = 1;
+    var is_ago = false;
+    if (s.len >= 4 and std.ascii.endsWithIgnoreCase(s, " ago")) {
+        is_ago = true;
+        s = std.mem.trim(u8, s[0 .. s.len - 4], " \t\r\n");
+    }
+
+    var sign: i64 = if (is_ago) -1 else 1;
     var num_start: usize = 0;
     if (s[0] == '+') {
-        sign = 1;
+        sign = if (is_ago) -1 else 1;
         num_start = 1;
     } else if (s[0] == '-') {
-        sign = -1;
+        sign = if (is_ago) 1 else -1;
         num_start = 1;
     }
 
@@ -77,10 +80,22 @@ fn parseDateRelative(str: []const u8, base_sec: i64) !std.os.linux.timespec {
     const s = std.mem.trim(u8, str, " \t\r\n'\"");
     if (s.len == 0) return error.InvalidDateFormat;
 
-    if (std.mem.eql(u8, s, "now")) {
+    if (std.ascii.eqlIgnoreCase(s, "now")) {
         var now_ts: c.struct_timespec = undefined;
         _ = c.clock_gettime(c.CLOCK_REALTIME, &now_ts);
         return .{ .sec = now_ts.tv_sec, .nsec = now_ts.tv_nsec };
+    }
+
+    if (std.ascii.eqlIgnoreCase(s, "yesterday")) {
+        var now_ts: c.struct_timespec = undefined;
+        _ = c.clock_gettime(c.CLOCK_REALTIME, &now_ts);
+        return .{ .sec = now_ts.tv_sec - 86400, .nsec = now_ts.tv_nsec };
+    }
+
+    if (std.ascii.eqlIgnoreCase(s, "tomorrow")) {
+        var now_ts: c.struct_timespec = undefined;
+        _ = c.clock_gettime(c.CLOCK_REALTIME, &now_ts);
+        return .{ .sec = now_ts.tv_sec + 86400, .nsec = now_ts.tv_nsec };
     }
 
     if (s.len > 1 and s[0] == '@') {
@@ -197,6 +212,61 @@ fn parsePosixTime(arg: []const u8) !std.os.linux.timespec {
     return .{ .sec = t, .nsec = 0 };
 }
 
+fn getPosix2Version() i64 {
+    if (std.c.getenv("_POSIX2_VERSION")) |val| {
+        const s = std.mem.span(val);
+        return std.fmt.parseInt(i64, s, 10) catch 200809;
+    }
+    return 200809;
+}
+
+fn parseObsoleteTime(arg: []const u8) ?std.os.linux.timespec {
+    if (arg.len != 8 and arg.len != 10) return null;
+    for (arg) |ch| {
+        if (!std.ascii.isDigit(ch)) return null;
+    }
+
+    const month = std.fmt.parseInt(c_int, arg[0..2], 10) catch return null;
+    const day = std.fmt.parseInt(c_int, arg[2..4], 10) catch return null;
+    const hour = std.fmt.parseInt(c_int, arg[4..6], 10) catch return null;
+    const min = std.fmt.parseInt(c_int, arg[6..8], 10) catch return null;
+
+    if (month < 1 or month > 12) return null;
+    if (day < 1 or day > 31) return null;
+    if (hour < 0 or hour > 23) return null;
+    if (min < 0 or min > 59) return null;
+
+    var year: c_int = undefined;
+    if (arg.len == 8) {
+        var now_ts: c.struct_timespec = undefined;
+        _ = c.clock_gettime(c.CLOCK_REALTIME, &now_ts);
+        const cur_tm = c.localtime(&now_ts.tv_sec);
+        if (cur_tm != null) {
+            year = cur_tm.*.tm_year + 1900;
+        } else {
+            year = 2026;
+        }
+    } else {
+        const yy = std.fmt.parseInt(c_int, arg[8..10], 10) catch return null;
+        // PDS_PRE_2000 rule: Year must be in range 69..99
+        if (yy < 69) return null;
+        year = 1900 + yy;
+    }
+
+    var tm: c.struct_tm = std.mem.zeroes(c.struct_tm);
+    tm.tm_year = year - 1900;
+    tm.tm_mon = month - 1;
+    tm.tm_mday = day;
+    tm.tm_hour = hour;
+    tm.tm_min = min;
+    tm.tm_sec = 0;
+    tm.tm_isdst = -1;
+
+    const t = c.mktime(&tm);
+    if (t == -1) return null;
+    return .{ .sec = t, .nsec = 0 };
+}
+
 fn touchFile(
     file_path: []const u8,
     no_create: bool,
@@ -288,7 +358,7 @@ fn touchFile(
     return true;
 }
 
-pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
+pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var stdout_buffer: [4096]u8 = undefined;
     var stderr_buffer: [4096]u8 = undefined;
     var stdout_writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &stdout_buffer);
@@ -307,95 +377,115 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
     var date_set = false;
     var newtime: [2]std.os.linux.timespec = undefined;
 
-    var file_start: usize = args.len;
-    var i: usize = 1;
+    var file_operands: std.ArrayList([]const u8) = .empty;
+    defer file_operands.deinit(allocator);
 
+    const posixly_correct = errors.isPosixlyCorrect();
+    var parsing_options = true;
+
+    var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
-        if (std.mem.eql(u8, arg, "--")) {
-            file_start = i + 1;
-            break;
-        }
-        if (!std.mem.startsWith(u8, arg, "-") or arg.len == 1) {
-            file_start = i;
-            break;
-        }
-
-        if (std.mem.startsWith(u8, arg, "--")) {
-            if (std.mem.eql(u8, arg, "--help")) {
-                try printHelp(stdout);
-                return 0;
-            } else if (std.mem.eql(u8, arg, "--version")) {
-                try printVersion(stdout);
-                return 0;
-            } else if (std.mem.eql(u8, arg, "--no-create")) {
-                no_create = true;
-            } else if (std.mem.eql(u8, arg, "--no-dereference")) {
-                no_dereference = true;
-            } else if (std.mem.startsWith(u8, arg, "--reference=")) {
-                use_ref = true;
-                ref_file = arg["--reference=".len..];
-            } else if (std.mem.eql(u8, arg, "--reference")) {
-                i += 1;
-                if (i >= args.len) {
-                    try stderr.print("touch: option '--reference' requires an argument\n", .{});
-                    return 1;
-                }
-                use_ref = true;
-                ref_file = args[i];
-            } else if (std.mem.startsWith(u8, arg, "--date=")) {
-                flex_date = arg["--date=".len..];
-            } else if (std.mem.eql(u8, arg, "--date")) {
-                i += 1;
-                if (i >= args.len) {
-                    try stderr.print("touch: option '--date' requires an argument\n", .{});
-                    return 1;
-                }
-                flex_date = args[i];
-            } else if (std.mem.startsWith(u8, arg, "--time=")) {
-                const time_arg = arg["--time=".len..];
-                if (std.mem.eql(u8, time_arg, "atime") or std.mem.eql(u8, time_arg, "access") or std.mem.eql(u8, time_arg, "use")) {
-                    change_times |= 1;
-                } else if (std.mem.eql(u8, time_arg, "mtime") or std.mem.eql(u8, time_arg, "modify")) {
-                    change_times |= 2;
-                } else {
-                    try stderr.print(
-                        \\touch: invalid argument '{s}' for '--time'
-                        \\Valid arguments are:
-                        \\  - 'atime', 'access', 'use'
-                        \\  - 'mtime', 'modify'
-                        \\Try 'touch --help' for more information.
-                        \\
-                    , .{time_arg});
-                    return 1;
-                }
-            } else if (std.mem.eql(u8, arg, "--time")) {
-                i += 1;
-                if (i >= args.len) {
-                    try stderr.print("touch: option '--time' requires an argument\n", .{});
-                    return 1;
-                }
-                const time_arg = args[i];
-                if (std.mem.eql(u8, time_arg, "atime") or std.mem.eql(u8, time_arg, "access") or std.mem.eql(u8, time_arg, "use")) {
-                    change_times |= 1;
-                } else if (std.mem.eql(u8, time_arg, "mtime") or std.mem.eql(u8, time_arg, "modify")) {
-                    change_times |= 2;
-                } else {
-                    try stderr.print(
-                        \\touch: invalid argument '{s}' for '--time'
-                        \\Valid arguments are:
-                        \\  - 'atime', 'access', 'use'
-                        \\  - 'mtime', 'modify'
-                        \\Try 'touch --help' for more information.
-                        \\
-                    , .{time_arg});
-                    return 1;
-                }
-            } else {
-                try stderr.print("touch: unrecognized option '{s}'\nTry 'touch --help' for more information.\n", .{arg});
-                return 1;
+        if (parsing_options and arg.len > 0 and arg[0] == '-') {
+            if (std.mem.eql(u8, arg, "-")) {
+                if (posixly_correct) parsing_options = false;
+                try file_operands.append(allocator, arg);
+                continue;
             }
-        } else {
+            if (std.mem.eql(u8, arg, "--")) {
+                parsing_options = false;
+                continue;
+            }
+
+            if (std.mem.startsWith(u8, arg, "--")) {
+                if (std.mem.indexOfScalar(u8, arg, '=')) |eq| {
+                    const opt_name = arg[2..eq];
+                    const opt_val = arg[eq + 1 ..];
+                    if (std.mem.startsWith(u8, "reference", opt_name)) {
+                        use_ref = true;
+                        ref_file = opt_val;
+                    } else if (std.mem.startsWith(u8, "date", opt_name)) {
+                        flex_date = opt_val;
+                    } else if (std.mem.startsWith(u8, "time", opt_name)) {
+                        if (std.mem.eql(u8, opt_val, "atime") or std.mem.eql(u8, opt_val, "access") or std.mem.eql(u8, opt_val, "use")) {
+                            change_times |= 1;
+                        } else if (std.mem.eql(u8, opt_val, "mtime") or std.mem.eql(u8, opt_val, "modify")) {
+                            change_times |= 2;
+                        } else {
+                            try stderr.print(
+                                \\touch: invalid argument '{s}' for '--time'
+                                \\Valid arguments are:
+                                \\  - 'atime', 'access', 'use'
+                                \\  - 'mtime', 'modify'
+                                \\Try 'touch --help' for more information.
+                                \\
+                            , .{opt_val});
+                            return 1;
+                        }
+                    } else {
+                        try errors.printUnrecognizedOption(stderr, name, arg);
+                        return 1;
+                    }
+                } else {
+                    const opt_name = arg[2..];
+                    if (std.mem.startsWith(u8, "help", opt_name)) {
+                        printHelp(stdout) catch return 1;
+                        stdout.flush() catch return 1;
+                        return 0;
+                    } else if (std.mem.startsWith(u8, "version", opt_name)) {
+                        printVersion(stdout) catch return 1;
+                        stdout.flush() catch return 1;
+                        return 0;
+                    } else if (opt_name.len >= 4 and std.mem.startsWith(u8, "no-create", opt_name)) {
+                        no_create = true;
+                    } else if (opt_name.len >= 4 and std.mem.startsWith(u8, "no-dereference", opt_name)) {
+                        no_dereference = true;
+                    } else if (std.mem.startsWith(u8, "reference", opt_name)) {
+                        i += 1;
+                        if (i >= args.len) {
+                            try stderr.print("touch: option '--reference' requires an argument\n", .{});
+                            return 1;
+                        }
+                        use_ref = true;
+                        ref_file = args[i];
+                    } else if (std.mem.startsWith(u8, "date", opt_name)) {
+                        i += 1;
+                        if (i >= args.len) {
+                            try stderr.print("touch: option '--date' requires an argument\n", .{});
+                            return 1;
+                        }
+                        flex_date = args[i];
+                    } else if (std.mem.startsWith(u8, "time", opt_name)) {
+                        i += 1;
+                        if (i >= args.len) {
+                            try stderr.print("touch: option '--time' requires an argument\n", .{});
+                            return 1;
+                        }
+                        const opt_val = args[i];
+                        if (std.mem.eql(u8, opt_val, "atime") or std.mem.eql(u8, opt_val, "access") or std.mem.eql(u8, opt_val, "use")) {
+                            change_times |= 1;
+                        } else if (std.mem.eql(u8, opt_val, "mtime") or std.mem.eql(u8, opt_val, "modify")) {
+                            change_times |= 2;
+                        } else {
+                            try stderr.print(
+                                \\touch: invalid argument '{s}' for '--time'
+                                \\Valid arguments are:
+                                \\  - 'atime', 'access', 'use'
+                                \\  - 'mtime', 'modify'
+                                \\Try 'touch --help' for more information.
+                                \\
+                            , .{opt_val});
+                            return 1;
+                        }
+                    } else {
+                        try errors.printUnrecognizedOption(stderr, name, arg);
+                        return 1;
+                    }
+                }
+                continue;
+            }
+
+            // Short options
             var j: usize = 1;
             while (j < arg.len) : (j += 1) {
                 const c_opt = arg[j];
@@ -465,6 +555,19 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
                     },
                 }
             }
+            continue;
+        }
+
+        if (posixly_correct) parsing_options = false;
+        try file_operands.append(allocator, arg);
+    }
+
+    if (!date_set and file_operands.items.len >= 2 and getPosix2Version() < 200112) {
+        if (parseObsoleteTime(file_operands.items[0])) |ot| {
+            newtime[0] = ot;
+            newtime[1] = ot;
+            date_set = true;
+            _ = file_operands.orderedRemove(0);
         }
     }
 
@@ -543,13 +646,13 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
         }
     }
 
-    if (file_start >= args.len) {
+    if (file_operands.items.len == 0) {
         try stderr.print("touch: missing file operand\nTry 'touch --help' for more information.\n", .{});
         return 1;
     }
 
     var exit_status: u8 = 0;
-    for (args[file_start..]) |file| {
+    for (file_operands.items) |file| {
         const ok = try touchFile(file, no_create, no_dereference, change_times, newtime, amtime_now, stderr);
         if (!ok) {
             exit_status = 1;

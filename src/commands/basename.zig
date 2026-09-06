@@ -17,60 +17,91 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
     var multiple: bool = false;
     var suffix: ?[]const u8 = null;
     var zero: bool = false;
-    var operands_start: usize = 1;
+    var operands_start: usize = args.len;
 
-    // Process options
+    // Process options (POSIX style: stop at first non-option)
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
-        if (std.mem.eql(u8, arg, "--help")) {
-            try printHelp(stdout);
+        if (std.mem.eql(u8, arg, "--")) {
+            operands_start = i + 1;
+            break;
+        } else if (std.mem.eql(u8, arg, "--help")) {
+            printHelp(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
-            try printVersion(stdout);
+            printVersion(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
-        } else if (std.mem.eql(u8, arg, "-a") or std.mem.eql(u8, arg, "--multiple")) {
+        } else if (std.mem.eql(u8, arg, "--multiple")) {
             multiple = true;
-        } else if (std.mem.eql(u8, arg, "-z") or std.mem.eql(u8, arg, "--zero")) {
+        } else if (std.mem.eql(u8, arg, "--zero")) {
             zero = true;
-        } else if (std.mem.startsWith(u8, arg, "-s")) {
-            multiple = true;
-            if (arg.len > 2) {
-                suffix = arg[2..];
-            } else if (i + 1 < args.len) {
-                i += 1;
-                suffix = args[i];
-            }
         } else if (std.mem.eql(u8, arg, "--suffix")) {
             multiple = true;
-            if (i + 1 < args.len) {
-                i += 1;
-                suffix = args[i];
+            if (i + 1 >= args.len) {
+                try errors.printErrorWithHelp(stderr, name, "option '--suffix' requires an argument");
+                return 1;
             }
+            i += 1;
+            suffix = args[i];
         } else if (std.mem.startsWith(u8, arg, "--suffix=")) {
             multiple = true;
             suffix = arg["--suffix=".len..];
-        } else if (std.mem.startsWith(u8, arg, "-")) {
-            // Unknown option
+        } else if (std.mem.startsWith(u8, arg, "--")) {
+            try errors.printUnrecognizedOption(stderr, name, arg);
+            return 1;
+        } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+            var j: usize = 1;
+            while (j < arg.len) : (j += 1) {
+                const c = arg[j];
+                switch (c) {
+                    'a' => multiple = true,
+                    'z' => zero = true,
+                    's' => {
+                        multiple = true;
+                        if (j + 1 < arg.len) {
+                            suffix = arg[j + 1 ..];
+                            break;
+                        } else if (i + 1 < args.len) {
+                            i += 1;
+                            suffix = args[i];
+                            break;
+                        } else {
+                            try errors.printErrorWithHelp(stderr, name, "option requires an argument -- 's'");
+                            return 1;
+                        }
+                    },
+                    else => {
+                        try errors.printInvalidOption(stderr, name, c);
+                        return 1;
+                    },
+                }
+            }
         } else {
             operands_start = i;
             break;
         }
     }
 
-    if (args.len <= operands_start) {
-        try errors.printError(stderr, name, "missing operand");
+    const num_operands = if (operands_start <= args.len) args.len - operands_start else 0;
+    if (num_operands == 0) {
+        try errors.printMissingOperand(stderr, name);
         return 1;
     }
 
     const terminator: u8 = if (zero) 0 else '\n';
 
-    if (!multiple and args.len - operands_start == 2) {
-        // basename NAME SUFFIX
-        const res = getBasename(args[operands_start], args[operands_start + 1]);
+    if (!multiple) {
+        if (num_operands > 2) {
+            try errors.printExtraOperand(stderr, name, args[operands_start + 2]);
+            return 1;
+        }
+        const op_suffix = if (num_operands == 2) args[operands_start + 1] else null;
+        const res = getBasename(args[operands_start], op_suffix);
         try stdout.print("{s}{c}", .{ res, terminator });
     } else {
-        // Multiple names or single name
         for (args[operands_start..]) |arg| {
             const res = getBasename(arg, suffix);
             try stdout.print("{s}{c}", .{ res, terminator });

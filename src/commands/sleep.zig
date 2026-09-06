@@ -1,9 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 
-const c = @cImport({
-    @cInclude("stdlib.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "sleep";
 pub const version: []const u8 = "0.1.0";
@@ -30,40 +28,58 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     defer stdout.flush() catch {};
     defer stderr.flush() catch {};
 
-    if (args.len < 2) {
-        try errors.printError(stderr, name, "missing operand");
-        return 1;
-    }
-
-    var arg_start: usize = 1;
-    while (arg_start < args.len) : (arg_start += 1) {
-        const arg = args[arg_start];
-        if (std.mem.eql(u8, arg, "--help")) {
+    // 1. Scan for --help and --version anywhere before --
+    for (args[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--")) {
+            break;
+        } else if (std.mem.eql(u8, arg, "--help")) {
             try printHelp(stdout);
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
             try printVersion(stdout);
+            stdout.flush() catch return 1;
             return 0;
-        } else if (std.mem.eql(u8, arg, "--")) {
-            arg_start += 1;
-            break;
-        } else if (std.mem.startsWith(u8, arg, "--")) {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "unrecognized option '{s}'", .{arg}));
-            return 1;
-        } else {
-            break;
         }
     }
 
-    if (arg_start >= args.len) {
-        try errors.printError(stderr, name, "missing operand");
+    if (args.len < 2) {
+        try errors.printErrorWithHelp(stderr, name, "missing operand");
+        return 1;
+    }
+
+    // 2. Separate options and operands
+    var operands: std.ArrayList([]const u8) = .empty;
+    defer operands.deinit(allocator);
+
+    var parsing_options = true;
+    for (args[1..]) |arg| {
+        if (parsing_options) {
+            if (std.mem.eql(u8, arg, "--")) {
+                parsing_options = false;
+                continue;
+            }
+            if (std.mem.startsWith(u8, arg, "--") and arg.len > 2) {
+                try stderr.print("sleep: unrecognized option '{s}'\nTry 'sleep --help' for more information.\n", .{arg});
+                return 1;
+            }
+            if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+                try stderr.print("sleep: invalid option -- '{c}'\nTry 'sleep --help' for more information.\n", .{arg[1]});
+                return 1;
+            }
+        }
+        try operands.append(allocator, arg);
+    }
+
+    if (operands.items.len == 0) {
+        try errors.printErrorWithHelp(stderr, name, "missing operand");
         return 1;
     }
 
     var total_seconds: f64 = 0;
     var ok = true;
 
-    for (args[arg_start..]) |arg| {
+    for (operands.items) |arg| {
         const arg_z = try allocator.dupeZ(u8, arg);
         defer allocator.free(arg_z);
 
@@ -71,7 +87,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         const val = c.strtod(arg_z.ptr, &endptr);
 
         if (endptr == arg_z.ptr or std.math.isNan(val) or val < 0) {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid time interval '{s}'", .{arg}));
+            try stderr.print("sleep: invalid time interval '{s}'\nTry 'sleep --help' for more information.\n", .{arg});
             ok = false;
             continue;
         }
@@ -79,13 +95,13 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         var s = val;
         const suffix = endptr[0];
         if (suffix != 0 and endptr[1] != 0) {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid time interval '{s}'", .{arg}));
+            try stderr.print("sleep: invalid time interval '{s}'\nTry 'sleep --help' for more information.\n", .{arg});
             ok = false;
             continue;
         }
 
         if (!applySuffix(&s, suffix)) {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid time interval '{s}'", .{arg}));
+            try stderr.print("sleep: invalid time interval '{s}'\nTry 'sleep --help' for more information.\n", .{arg});
             ok = false;
             continue;
         }
@@ -114,6 +130,8 @@ pub fn printHelp(writer: anytype) !void {
         \\
         \\      --help     display this help and exit
         \\      --version  output version information and exit
+        \\
+        \\GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
         \\
     );
 }

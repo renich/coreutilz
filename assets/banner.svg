@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e17"/>
+      <stop offset="50%" stop-color="#0d1527"/>
+      <stop offset="100%" stop-color="#060911"/>
+    </linearGradient>
+    <linearGradient id="zig-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f7a41d"/>
+      <stop offset="50%" stop-color="#ffb84d"/>
+      <stop offset="100%" stop-color="#f78c1d"/>
+    </linearGradient>
+    <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#0088ff"/>
+    </linearGradient>
+    <linearGradient id="border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f7a41d" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#00e5ff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="1200" height="360" rx="16" fill="url(#bg-grad)"/>
+  <rect width="1200" height="360" rx="16" fill="url(#grid)"/>
+  <rect width="1198" height="358" x="1" y="1" rx="15" fill="none" stroke="url(#border-grad)" stroke-width="1.5"/>
+
+  <!-- Circuit / Terminal Accent Lines -->
+  <g opacity="0.4">
+    <path d="M 60 40 L 220 40 L 260 80 L 400 80" fill="none" stroke="#00e5ff" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <circle cx="60" cy="40" r="3" fill="#00e5ff"/>
+    <circle cx="400" cy="80" r="3" fill="#00e5ff"/>
+    <path d="M 1140 320 L 980 320 L 940 280 L 820 280" fill="none" stroke="#f7a41d" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <circle cx="1140" cy="320" r="3" fill="#f7a41d"/>
+    <circle cx="820" cy="280" r="3" fill="#f7a41d"/>
+  </g>
+
+  <!-- Logo Mark Hexagon & Terminal Icon -->
+  <g transform="translate(100, 100)">
+    <!-- Hexagon Outer -->
+    <polygon points="70,0 140,40 140,120 70,160 0,120 0,40" fill="#131b2e" stroke="url(#border-grad)" stroke-width="3" filter="url(#glow)"/>
+    <!-- Inner Zig Shape -->
+    <path d="M 35 45 L 90 45 L 45 115 L 105 115" fill="none" stroke="url(#zig-grad)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Glowing Node dots -->
+    <circle cx="35" cy="45" r="5" fill="#f7a41d"/>
+    <circle cx="105" cy="115" r="5" fill="#00e5ff"/>
+  </g>
+
+  <!-- Typography & Headings -->
+  <g transform="translate(280, 105)">
+    <!-- Title -->
+    <text x="0" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="64" letter-spacing="4" fill="#ffffff">COREUTILZ</text>
+    <text x="390" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="32" letter-spacing="2" fill="url(#zig-grad)">[ZIG]</text>
+
+    <!-- Subtitle -->
+    <text x="2" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Liberation Sans', sans-serif" font-weight="400" font-size="21" fill="#94a3b8" letter-spacing="0.5">
+      The 100% GNU-Compatible Coreutils in <tspan fill="#f7a41d" font-weight="600">Zig 0.16.0</tspan>. Zero bloat, byte-for-byte fidelity.
+    </text>
+
+    <!-- Feature Badges Row -->
+    <g transform="translate(0, 128)">
+      <!-- Badge 1: 100% GNU Parity -->
+      <g transform="translate(0, 0)">
+        <rect width="180" height="34" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <circle cx="16" cy="17" r="4" fill="#22c55e"/>
+        <text x="28" y="22" font-family="monospace" font-size="12" font-weight="700" fill="#e2e8f0">100% GNU PARITY</text>
+      </g>
+
+      <!-- Badge 2: 38 Utilities -->
+      <g transform="translate(192, 0)">
+        <rect width="168" height="34" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <circle cx="16" cy="17" r="4" fill="#00e5ff"/>
+        <text x="28" y="22" font-family="monospace" font-size="12" font-weight="700" fill="#e2e8f0">38 UTILITIES</text>
+      </g>
+
+      <!-- Badge 3: 5.7 MB Fast -->
+      <g transform="translate(372, 0)">
+        <rect width="186" height="34" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <circle cx="16" cy="17" r="4" fill="#f7a41d"/>
+        <text x="28" y="22" font-family="monospace" font-size="12" font-weight="700" fill="#e2e8f0">5.7 MB MULTICALL</text>
+      </g>
+
+      <!-- Badge 4: Zero Dependencies -->
+      <g transform="translate(570, 0)">
+        <rect width="188" height="34" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <circle cx="16" cy="17" r="4" fill="#a855f7"/>
+        <text x="28" y="22" font-family="monospace" font-size="12" font-weight="700" fill="#e2e8f0">ZERO DEPENDENCIES</text>
+      </g>
+    </g>
+  </g>
+</svg>

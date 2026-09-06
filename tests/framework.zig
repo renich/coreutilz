@@ -108,7 +108,10 @@ pub const TestContext = struct {
         });
         defer child.kill(io);
 
-        try child.stdin.?.writeStreamingAll(io, input.?);
+        child.stdin.?.writeStreamingAll(io, input.?) catch |err| switch (err) {
+            error.BrokenPipe => {},
+            else => return err,
+        };
         child.stdin.?.close(io);
         child.stdin = null;
 

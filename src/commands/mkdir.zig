@@ -1,5 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
+const mode_util = @import("../utils/mode.zig");
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "mkdir";
 pub const version: []const u8 = "0.1.0";
@@ -7,124 +9,146 @@ pub const version: []const u8 = "0.1.0";
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var stdout_buffer: [4096]u8 = undefined;
     var stderr_buffer: [4096]u8 = undefined;
-    var stdout_writer: std.Io.File.Writer = .init(.stdout(), std.Options.debug_io, &stdout_buffer);
-    var stderr_writer: std.Io.File.Writer = .init(.stderr(), std.Options.debug_io, &stderr_buffer);
+    var stdout_writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &stdout_buffer);
+    var stderr_writer: std.Io.File.Writer = .initStreaming(.stderr(), std.Options.debug_io, &stderr_buffer);
     const stdout = &stdout_writer.interface;
     const stderr = &stderr_writer.interface;
     defer stdout.flush() catch {};
     defer stderr.flush() catch {};
 
+    const cur_umask = c.umask(0);
+    _ = c.umask(cur_umask);
+
     var parents = false;
     var verbose = false;
-    var mode: std.posix.mode_t = 0o777;
+    var final_mode: u32 = 0o777 & ~@as(u32, @intCast(cur_umask));
     var mode_provided = false;
-    var files_start: usize = args.len;
 
-    // Parse options
+    var file_operands: std.ArrayList([]const u8) = .empty;
+    defer file_operands.deinit(allocator);
+
+    var parsing_options = true;
+    const posixly_correct = errors.isPosixlyCorrect();
+
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
-        if (std.mem.eql(u8, arg, "--help")) {
-            try printHelp(stdout);
-            return 0;
-        } else if (std.mem.eql(u8, arg, "--version")) {
-            try printVersion(stdout);
-            return 0;
-        } else if (std.mem.eql(u8, arg, "-p") or std.mem.eql(u8, arg, "--parents")) {
-            parents = true;
-        } else if (std.mem.eql(u8, arg, "-v") or std.mem.eql(u8, arg, "--verbose")) {
-            verbose = true;
-        } else if (std.mem.startsWith(u8, arg, "--mode=")) {
-            const mode_str = arg["--mode=".len..];
-            mode = std.fmt.parseInt(std.posix.mode_t, mode_str, 8) catch {
-                const msg = try std.fmt.allocPrint(allocator, "invalid mode '{s}'", .{mode_str});
-                defer allocator.free(msg);
-                try errors.printError(stderr, name, msg);
-                return 1;
-            };
-            mode_provided = true;
-        } else if (std.mem.eql(u8, arg, "--mode")) {
-            if (i + 1 >= args.len) {
-                try errors.printError(stderr, name, "option '--mode' requires an argument");
-                return 1;
-            }
-            i += 1;
-            const mode_str = args[i];
-            mode = std.fmt.parseInt(std.posix.mode_t, mode_str, 8) catch {
-                const msg = try std.fmt.allocPrint(allocator, "invalid mode '{s}'", .{mode_str});
-                defer allocator.free(msg);
-                try errors.printError(stderr, name, msg);
-                return 1;
-            };
-            mode_provided = true;
-        } else if (std.mem.eql(u8, arg, "--")) {
-            files_start = i + 1;
-            break;
-        } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1 and arg[1] != '-') {
-            var j: usize = 1;
-            while (j < arg.len) : (j += 1) {
-                switch (arg[j]) {
-                    'p' => parents = true,
-                    'v' => verbose = true,
-                    'Z' => {},
-                    'm' => {
-                        var mode_str: []const u8 = undefined;
-                        if (j + 1 < arg.len) {
-                            mode_str = arg[j + 1 ..];
-                            j = arg.len;
-                        } else {
-                            if (i + 1 >= args.len) {
-                                try errors.printError(stderr, name, "option requires an argument -- 'm'");
-                                return 1;
-                            }
-                            i += 1;
-                            mode_str = args[i];
-                        }
-                        mode = std.fmt.parseInt(std.posix.mode_t, mode_str, 8) catch {
-                            const msg = try std.fmt.allocPrint(allocator, "invalid mode '{s}'", .{mode_str});
-                            defer allocator.free(msg);
-                            try errors.printError(stderr, name, msg);
-                            return 1;
-                        };
-                        mode_provided = true;
-                        break;
-                    },
-                    else => {
-                        const msg = try std.fmt.allocPrint(allocator, "invalid option -- '{c}'", .{arg[j]});
-                        defer allocator.free(msg);
-                        try errors.printError(stderr, name, msg);
+
+        if (parsing_options and std.mem.eql(u8, arg, "--")) {
+            parsing_options = false;
+            continue;
+        }
+
+        if (parsing_options and std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+            if (std.mem.startsWith(u8, arg, "--")) {
+                var opt = arg;
+                while (opt.len > 2 and opt[0] == '-' and opt[1] == '-' and opt[2] == '-') {
+                    opt = opt[1..];
+                }
+                if (std.mem.eql(u8, opt, "--help")) {
+                    printHelp(stdout) catch return 1;
+                    stdout.flush() catch return 1;
+                    return 0;
+                } else if (std.mem.eql(u8, opt, "--version")) {
+                    printVersion(stdout) catch return 1;
+                    stdout.flush() catch return 1;
+                    return 0;
+                } else if (std.mem.eql(u8, opt, "--parents")) {
+                    parents = true;
+                } else if (std.mem.eql(u8, opt, "--verbose")) {
+                    verbose = true;
+                } else if (std.mem.startsWith(u8, opt, "--mode=")) {
+                    const mode_str = opt["--mode=".len..];
+                    final_mode = mode_util.parseMode(mode_str, 0o777, true, @intCast(cur_umask)) catch {
+                        try stderr.print("mkdir: invalid mode '{s}'\n", .{mode_str});
                         return 1;
-                    },
+                    };
+                    mode_provided = true;
+                } else if (std.mem.eql(u8, opt, "--mode")) {
+                    if (i + 1 >= args.len) {
+                        try errors.printErrorWithHelp(stderr, name, "option '--mode' requires an argument");
+                        return 1;
+                    }
+                    i += 1;
+                    const mode_str = args[i];
+                    final_mode = mode_util.parseMode(mode_str, 0o777, true, @intCast(cur_umask)) catch {
+                        try stderr.print("mkdir: invalid mode '{s}'\n", .{mode_str});
+                        return 1;
+                    };
+                    mode_provided = true;
+                } else if (std.mem.startsWith(u8, opt, "--context")) {
+                    // SELinux context option - accept and ignore
+                } else {
+                    try errors.printUnrecognizedOption(stderr, name, arg);
+                    return 1;
+                }
+            } else {
+                var j: usize = 1;
+                while (j < arg.len) : (j += 1) {
+                    const ch = arg[j];
+                    switch (ch) {
+                        'p' => parents = true,
+                        'v' => verbose = true,
+                        'Z' => {},
+                        'm' => {
+                            var mode_str: []const u8 = undefined;
+                            if (j + 1 < arg.len) {
+                                mode_str = arg[j + 1 ..];
+                                j = arg.len;
+                            } else {
+                                if (i + 1 >= args.len) {
+                                    try errors.printErrorWithHelp(stderr, name, "option requires an argument -- 'm'");
+                                    return 1;
+                                }
+                                i += 1;
+                                mode_str = args[i];
+                            }
+                            final_mode = mode_util.parseMode(mode_str, 0o777, true, @intCast(cur_umask)) catch {
+                                try stderr.print("mkdir: invalid mode '{s}'\n", .{mode_str});
+                                return 1;
+                            };
+                            mode_provided = true;
+                            break;
+                        },
+                        else => {
+                            try errors.printInvalidOption(stderr, name, ch);
+                            return 1;
+                        },
+                    }
                 }
             }
         } else {
-            files_start = i;
-            break;
+            try file_operands.append(allocator, arg);
+            if (posixly_correct) {
+                parsing_options = false;
+            }
         }
     }
 
-    if (files_start >= args.len) {
-        try errors.printError(stderr, name, "missing operand");
+    if (file_operands.items.len == 0) {
+        try errors.printMissingOperand(stderr, name);
         return 1;
     }
 
     var exit_status: u8 = 0;
 
-    for (args[files_start..]) |dir_name| {
+    for (file_operands.items) |dir_name| {
         if (parents) {
-            makePath(dir_name, mode, mode_provided, verbose, stdout) catch |err| {
-                try errors.printErrorWithArg(stderr, name, dir_name, err);
-                exit_status = 1;
-            };
+            const ok = try makePath(allocator, dir_name, final_mode, mode_provided, verbose, @intCast(cur_umask), stdout, stderr);
+            if (!ok) exit_status = 1;
         } else {
-            const perms: std.Io.File.Permissions = if (mode_provided) @enumFromInt(mode) else .default_dir;
-            std.Io.Dir.cwd().createDir(std.Options.debug_io, dir_name, perms) catch |err| {
-                try errors.printErrorWithArg(stderr, name, dir_name, err);
+            const path_c = try allocator.dupeZ(u8, dir_name);
+            defer allocator.free(path_c);
+
+            const initial_create_mode: c_uint = if (mode_provided) @intCast(final_mode) else 0o777;
+            if (c.mkdir(path_c.ptr, initial_create_mode) != 0) {
+                const err = c.__errno_location().*;
+                try stderr.print("mkdir: cannot create directory '{s}': {s}\n", .{ dir_name, c.strerror(err) });
                 exit_status = 1;
                 continue;
-            };
+            }
             if (mode_provided) {
-                std.Io.Dir.cwd().setFilePermissions(std.Options.debug_io, dir_name, @enumFromInt(mode), .{}) catch {};
+                _ = c.chmod(path_c.ptr, @intCast(final_mode));
             }
             if (verbose) {
                 try stdout.print("mkdir: created directory '{s}'\n", .{dir_name});
@@ -135,37 +159,86 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     return exit_status;
 }
 
-fn makePath(path: []const u8, mode: std.posix.mode_t, mode_provided: bool, verbose: bool, stdout: anytype) !void {
-    if (path.len == 0) return;
+fn makePath(
+    allocator: std.mem.Allocator,
+    path: []const u8,
+    mode: u32,
+    mode_provided: bool,
+    verbose: bool,
+    cur_umask: c_uint,
+    stdout: anytype,
+    stderr: anytype,
+) !bool {
+    if (path.len == 0) return true;
+
+    // Strip trailing slashes, but keep track if it ended in "/." or "/.."
+    var end = path.len;
+    while (end > 1 and path[end - 1] == '/') {
+        end -= 1;
+    }
+    const clean_path = path[0..end];
 
     var i: usize = 0;
-    while (i < path.len) {
-        while (i < path.len and path[i] == '/') i += 1;
-        while (i < path.len and path[i] != '/') i += 1;
+    while (i < clean_path.len) {
+        while (i < clean_path.len and clean_path[i] == '/') i += 1;
+        while (i < clean_path.len and clean_path[i] != '/') i += 1;
 
         if (i == 0) break;
-        const is_last = (i == path.len or (i < path.len and std.mem.indexOfNone(u8, path[i..], "/") == null));
-        const sub_path = if (is_last) path else path[0..i];
+        const sub_path = clean_path[0..i];
+        const is_last = (i >= clean_path.len);
 
-        var created = false;
-        if (std.Io.Dir.cwd().createDir(std.Options.debug_io, sub_path, .default_dir)) |_| {
-            created = true;
-        } else |err| switch (err) {
-            error.PathAlreadyExists => {
-                const stat = std.Io.Dir.cwd().statFile(std.Options.debug_io, sub_path, .{}) catch |s_err| return s_err;
-                if (stat.kind != .directory) return error.NotDir;
-            },
-            else => return err,
+        const sub_base = std.fs.path.basename(sub_path);
+        if (std.mem.eql(u8, sub_base, ".") or std.mem.eql(u8, sub_base, "..")) {
+            if (is_last) break;
+            continue;
+        }
+
+        const sub_c = try allocator.dupeZ(u8, sub_path);
+        defer allocator.free(sub_c);
+
+        var st: c.struct_stat = undefined;
+        if (c.stat(sub_c.ptr, &st) == 0) {
+            if ((st.st_mode & c.S_IFMT) != c.S_IFDIR) {
+                try stderr.print("mkdir: cannot create directory '{s}': File exists\n", .{path});
+                return false;
+            }
+            if (is_last) break;
+            continue;
+        }
+
+        if (!is_last) {
+            const ancestor_mask = cur_umask & ~@as(c_uint, 0o300);
+            _ = c.umask(ancestor_mask);
+        }
+        const create_mode: c_uint = if (is_last and mode_provided) @intCast(mode) else 0o777;
+        const mkdir_res = c.mkdir(sub_c.ptr, create_mode);
+        if (!is_last) {
+            _ = c.umask(cur_umask);
+        }
+
+        if (mkdir_res != 0) {
+            const err = c.__errno_location().*;
+            // Check if it was created concurrently
+            if (err == c.EEXIST and c.stat(sub_c.ptr, &st) == 0 and (st.st_mode & c.S_IFMT) == c.S_IFDIR) {
+                if (is_last) break;
+                continue;
+            }
+            try stderr.print("mkdir: cannot create directory '{s}': {s}\n", .{ path, c.strerror(err) });
+            return false;
         }
 
         if (is_last and mode_provided) {
-            try std.Io.Dir.cwd().setFilePermissions(std.Options.debug_io, sub_path, @enumFromInt(mode), .{});
+            _ = c.chmod(sub_c.ptr, @intCast(mode));
         }
-        if (created and verbose) {
+
+        if (verbose) {
             try stdout.print("mkdir: created directory '{s}'\n", .{sub_path});
         }
+
         if (is_last) break;
     }
+
+    return true;
 }
 
 pub fn printHelp(writer: anytype) !void {
@@ -173,12 +246,17 @@ pub fn printHelp(writer: anytype) !void {
         \\Usage: mkdir [OPTION]... DIRECTORY...
         \\Create the DIRECTORY(ies), if they do not already exist.
         \\
+        \\Mandatory arguments to long options are mandatory for short options too.
         \\  -m, --mode=MODE   set file mode (as in chmod), not a=rwx - umask
         \\  -p, --parents     no error if existing, make parent directories as needed
         \\  -v, --verbose     print a message for each created directory
         \\  -Z                set SELinux security context of each created directory
+        \\      --context[=CTX]  like -Z, or if CTX is specified then set the SELinux
+        \\                         or SMACK security context to CTX
         \\      --help        display this help and exit
         \\      --version     output version information and exit
+        \\
+        \\GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
         \\
     );
 }

@@ -1,16 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 
-const c = @cImport({
-    @cInclude("sys/stat.h");
-    @cInclude("sys/statvfs.h");
-    @cInclude("pwd.h");
-    @cInclude("grp.h");
-    @cInclude("unistd.h");
-    @cInclude("time.h");
-    @cInclude("string.h");
-    @cInclude("errno.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "stat";
 pub const version: []const u8 = "0.1.0";
@@ -36,20 +27,19 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     while (i < args.len) : (i += 1) {
         const arg = args[i];
         if (std.mem.eql(u8, arg, "--help")) {
-            try printHelp(stdout);
+            printHelp(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
-            try printVersion(stdout);
+            printVersion(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
-        } else if (std.mem.eql(u8, arg, "-L") or std.mem.eql(u8, arg, "--dereference")) {
+        } else if (std.mem.eql(u8, arg, "-L") or (std.mem.startsWith(u8, arg, "--d") and std.mem.startsWith(u8, "--dereference", arg))) {
             follow_symlinks = true;
-        } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--file-system")) {
+        } else if (std.mem.eql(u8, arg, "-f") or (std.mem.startsWith(u8, arg, "--fi") and std.mem.startsWith(u8, "--file-system", arg))) {
             filesystem = true;
-        } else if (std.mem.eql(u8, arg, "-t") or std.mem.eql(u8, arg, "--terse")) {
+        } else if (std.mem.eql(u8, arg, "-t") or (std.mem.startsWith(u8, arg, "--t") and std.mem.startsWith(u8, "--terse", arg))) {
             terse = true;
-        } else if (std.mem.startsWith(u8, arg, "--format=")) {
-            format_str = arg["--format=".len..];
-            is_printf = false;
         } else if (std.mem.eql(u8, arg, "-c")) {
             if (i + 1 >= args.len) {
                 try errors.printError(stderr, name, "option requires an argument -- 'c'");
@@ -58,9 +48,36 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             i += 1;
             format_str = args[i];
             is_printf = false;
-        } else if (std.mem.startsWith(u8, arg, "--printf=")) {
-            format_str = arg["--printf=".len..];
+        } else if (std.mem.startsWith(u8, arg, "--") and std.mem.indexOfScalar(u8, arg, '=') != null) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=').?;
+            const opt_name = arg[2..eq];
+            const opt_val = arg[eq + 1 ..];
+            if (std.mem.startsWith(u8, "printf", opt_name)) {
+                format_str = opt_val;
+                is_printf = true;
+            } else if (opt_name.len >= 2 and std.mem.startsWith(u8, "format", opt_name)) {
+                format_str = opt_val;
+                is_printf = false;
+            } else {
+                try errors.printUnrecognizedOption(stderr, name, arg);
+                return 1;
+            }
+        } else if (std.mem.startsWith(u8, arg, "--p") and std.mem.startsWith(u8, "--printf", arg)) {
+            if (i + 1 >= args.len) {
+                try errors.printError(stderr, name, "option '--printf' requires an argument");
+                return 1;
+            }
+            i += 1;
+            format_str = args[i];
             is_printf = true;
+        } else if (std.mem.startsWith(u8, arg, "--fo") and std.mem.startsWith(u8, "--format", arg)) {
+            if (i + 1 >= args.len) {
+                try errors.printError(stderr, name, "option '--format' requires an argument");
+                return 1;
+            }
+            i += 1;
+            format_str = args[i];
+            is_printf = false;
         } else if (std.mem.eql(u8, arg, "--")) {
             files_start = i + 1;
             break;
@@ -113,14 +130,20 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var exit_status: u8 = 0;
 
     for (args[files_start..]) |file| {
-        const file_z = try allocator.dupeZ(u8, file);
-        defer allocator.free(file_z);
-
         if (filesystem) {
+            if (std.mem.eql(u8, file, "-")) {
+                try errors.printError(stderr, name, "using '-' to denote standard input does not work in file system mode");
+                exit_status = 1;
+                continue;
+            }
+
+            const file_z = try allocator.dupeZ(u8, file);
+            defer allocator.free(file_z);
+
             var sv: c.struct_statvfs = undefined;
             if (c.statvfs(file_z.ptr, &sv) != 0) {
                 const err_msg = std.mem.span(c.strerror(c.__errno_location().*));
-                const msg = try std.fmt.allocPrint(allocator, "cannot statx '{s}': {s}", .{ file, err_msg });
+                const msg = try std.fmt.allocPrint(allocator, "cannot read file system information for '{s}': {s}", .{ file, err_msg });
                 defer allocator.free(msg);
                 try errors.printError(stderr, name, msg);
                 exit_status = 1;
@@ -128,7 +151,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             }
 
             if (format_str) |fmt| {
-                try printFormattedFs(stdout, fmt, file, &sv, is_printf);
+                const ok = try printFormatted(stdout, stderr, fmt, file, null, &sv, null, null, is_printf, allocator);
+                if (!ok) exit_status = 1;
             } else if (terse) {
                 try stdout.print("{s} {x} {d} {x} {d} {d} {d} {d} {d} {d} {d}\n", .{
                     file,
@@ -152,19 +176,48 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             }
         } else {
             var st: c.struct_stat = undefined;
-            const res = if (follow_symlinks) c.stat(file_z.ptr, &st) else c.lstat(file_z.ptr, &st);
-            if (res != 0) {
-                const err_msg = std.mem.span(c.strerror(c.__errno_location().*));
-                const msg = try std.fmt.allocPrint(allocator, "cannot statx '{s}': {s}", .{ file, err_msg });
-                defer allocator.free(msg);
-                try errors.printError(stderr, name, msg);
-                exit_status = 1;
-                continue;
+            const is_stdin = std.mem.eql(u8, file, "-");
+            var btime: ?c.struct_timespec = null;
+
+            if (is_stdin) {
+                if (c.fstat(0, &st) != 0) {
+                    const err_msg = std.mem.span(c.strerror(c.__errno_location().*));
+                    const msg = try std.fmt.allocPrint(allocator, "cannot stat standard input: {s}", .{err_msg});
+                    defer allocator.free(msg);
+                    try errors.printError(stderr, name, msg);
+                    exit_status = 1;
+                    continue;
+                }
+                var stx: c.struct_statx = undefined;
+                const r = c.statx(0, "", c.AT_EMPTY_PATH, c.STATX_BTIME, &stx);
+                if (r == 0 and (stx.stx_mask & c.STATX_BTIME) != 0) {
+                    btime = .{ .tv_sec = stx.stx_btime.tv_sec, .tv_nsec = @intCast(stx.stx_btime.tv_nsec) };
+                }
+            } else {
+                const file_z = try allocator.dupeZ(u8, file);
+                defer allocator.free(file_z);
+
+                const res = if (follow_symlinks) c.stat(file_z.ptr, &st) else c.lstat(file_z.ptr, &st);
+                if (res != 0) {
+                    const err_msg = std.mem.span(c.strerror(c.__errno_location().*));
+                    const msg = try std.fmt.allocPrint(allocator, "cannot statx '{s}': {s}", .{ file, err_msg });
+                    defer allocator.free(msg);
+                    try errors.printError(stderr, name, msg);
+                    exit_status = 1;
+                    continue;
+                }
+
+                var stx: c.struct_statx = undefined;
+                const flags: c_int = if (follow_symlinks) 0 else c.AT_SYMLINK_NOFOLLOW;
+                const r = c.statx(c.AT_FDCWD, file_z.ptr, flags, c.STATX_BTIME, &stx);
+                if (r == 0 and (stx.stx_mask & c.STATX_BTIME) != 0) {
+                    btime = .{ .tv_sec = stx.stx_btime.tv_sec, .tv_nsec = @intCast(stx.stx_btime.tv_nsec) };
+                }
             }
 
             var link_target_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
             var link_target: ?[]const u8 = null;
-            if ((st.st_mode & c.S_IFMT) == c.S_IFLNK) {
+            if (!is_stdin and (st.st_mode & c.S_IFMT) == c.S_IFLNK) {
                 const len = std.Io.Dir.cwd().readLink(std.Options.debug_io, file, &link_target_buf) catch 0;
                 if (len > 0) {
                     link_target = link_target_buf[0..len];
@@ -172,7 +225,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             }
 
             if (format_str) |fmt| {
-                try printFormattedFile(stdout, fmt, file, &st, link_target, is_printf);
+                const ok = try printFormatted(stdout, stderr, fmt, file, &st, null, link_target, btime, is_printf, allocator);
+                if (!ok) exit_status = 1;
             } else if (terse) {
                 try stdout.print("{s} {d} {d} {x} {d} {d} {x} {d} {d} {d} {d} {d} {d} {d} 0 {d}\n", .{
                     file,
@@ -201,6 +255,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                 } else {
                     try stdout.print("  File: {s}\n", .{file});
                 }
+
+                const is_special = ((st.st_mode & c.S_IFMT) == c.S_IFCHR) or ((st.st_mode & c.S_IFMT) == c.S_IFBLK);
                 try stdout.print("  Size: {d:<10}\tBlocks: {d:<10} IO Block: {d:<6} {s}\n", .{
                     st.st_size,
                     st.st_blocks,
@@ -208,14 +264,27 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                     file_type,
                 });
 
-                const dev_major = @as(u32, @intCast((st.st_dev >> 8) & 0xfff));
-                const dev_minor = @as(u32, @intCast((st.st_dev & 0xff) | ((st.st_dev >> 12) & 0xfff00)));
-                try stdout.print("Device: {d},{d}\tInode: {d:<11} Links: {d}\n", .{
-                    dev_major,
-                    dev_minor,
-                    st.st_ino,
-                    st.st_nlink,
-                });
+                const dev_major = c.gnu_dev_major(st.st_dev);
+                const dev_minor = c.gnu_dev_minor(st.st_dev);
+                if (is_special) {
+                    const rdev_major = c.gnu_dev_major(st.st_rdev);
+                    const rdev_minor = c.gnu_dev_minor(st.st_rdev);
+                    try stdout.print("Device: {d},{d}\tInode: {d:<11} Links: {d:<5} Device type: {d},{d}\n", .{
+                        dev_major,
+                        dev_minor,
+                        st.st_ino,
+                        st.st_nlink,
+                        rdev_major,
+                        rdev_minor,
+                    });
+                } else {
+                    try stdout.print("Device: {d},{d}\tInode: {d:<11} Links: {d}\n", .{
+                        dev_major,
+                        dev_minor,
+                        st.st_ino,
+                        st.st_nlink,
+                    });
+                }
 
                 const pw = c.getpwuid(st.st_uid);
                 const uname: []const u8 = if (pw != null and pw.*.pw_name != null) std.mem.span(pw.*.pw_name) else "UNKNOWN";
@@ -234,6 +303,11 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                 try printTime(stdout, "Access", st.st_atim.tv_sec, st.st_atim.tv_nsec);
                 try printTime(stdout, "Modify", st.st_mtim.tv_sec, st.st_mtim.tv_nsec);
                 try printTime(stdout, "Change", st.st_ctim.tv_sec, st.st_ctim.tv_nsec);
+                if (btime) |bt| {
+                    try printTime(stdout, " Birth", bt.tv_sec, bt.tv_nsec);
+                } else {
+                    try stdout.writeAll(" Birth: -\n");
+                }
             }
         }
     }
@@ -297,148 +371,549 @@ fn printTime(writer: anytype, label: []const u8, sec: isize, nsec: isize) !void 
     }
 }
 
-fn printFormattedFile(writer: anytype, fmt: []const u8, name_str: []const u8, st: *const c.struct_stat, link_target: ?[]const u8, is_printf: bool) !void {
-    var idx: usize = 0;
-    while (idx < fmt.len) {
-        if (fmt[idx] == '%' and idx + 1 < fmt.len) {
-            idx += 1;
-            switch (fmt[idx]) {
-                'a' => try writer.print("{o}", .{st.st_mode & 0o7777}),
-                'A' => {
-                    var perm_buf: [11]u8 = undefined;
-                    getPermString(st.st_mode, &perm_buf);
-                    try writer.writeAll(perm_buf[0..10]);
-                },
-                'b' => try writer.print("{d}", .{st.st_blocks}),
-                'B' => try writer.print("{d}", .{512}),
-                'd' => try writer.print("{d}", .{st.st_dev}),
-                'D' => try writer.print("{x}", .{st.st_dev}),
-                'f' => try writer.print("{x}", .{st.st_mode}),
-                'F' => try writer.writeAll(getFileType(st.st_mode, st.st_size)),
-                'g' => try writer.print("{d}", .{st.st_gid}),
-                'G' => {
-                    const gr = c.getgrgid(st.st_gid);
-                    if (gr != null and gr.*.gr_name != null) try writer.writeAll(std.mem.span(gr.*.gr_name)) else try writer.writeAll("UNKNOWN");
-                },
-                'h' => try writer.print("{d}", .{st.st_nlink}),
-                'i' => try writer.print("{d}", .{st.st_ino}),
-                'n' => try writer.writeAll(name_str),
-                'N' => {
-                    if (link_target) |tgt| {
-                        try writer.print("'{s}' -> '{s}'", .{ name_str, tgt });
-                    } else {
-                        try writer.print("'{s}'", .{name_str});
-                    }
-                },
-                'o' => try writer.print("{d}", .{st.st_blksize}),
-                's' => try writer.print("{d}", .{st.st_size}),
-                'u' => try writer.print("{d}", .{st.st_uid}),
-                'U' => {
-                    const pw = c.getpwuid(st.st_uid);
-                    if (pw != null and pw.*.pw_name != null) try writer.writeAll(std.mem.span(pw.*.pw_name)) else try writer.writeAll("UNKNOWN");
-                },
-                'x' => {
-                    var tm_val: c.struct_tm = undefined;
-                    const time_val: c.time_t = @intCast(st.st_atim.tv_sec);
-                    _ = c.localtime_r(&time_val, &tm_val);
-                    var t_buf: [64]u8 = undefined;
-                    const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
-                    var tz_buf: [16]u8 = undefined;
-                    const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
-                    try writer.print("{s}.{d:0>9} {s}", .{ t_buf[0..len], st.st_atim.tv_nsec, tz_buf[0..tz_len] });
-                },
-                'X' => try writer.print("{d}", .{st.st_atim.tv_sec}),
-                'y' => {
-                    var tm_val: c.struct_tm = undefined;
-                    const time_val: c.time_t = @intCast(st.st_mtim.tv_sec);
-                    _ = c.localtime_r(&time_val, &tm_val);
-                    var t_buf: [64]u8 = undefined;
-                    const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
-                    var tz_buf: [16]u8 = undefined;
-                    const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
-                    try writer.print("{s}.{d:0>9} {s}", .{ t_buf[0..len], st.st_mtim.tv_nsec, tz_buf[0..tz_len] });
-                },
-                'Y' => try writer.print("{d}", .{st.st_mtim.tv_sec}),
-                'z' => {
-                    var tm_val: c.struct_tm = undefined;
-                    const time_val: c.time_t = @intCast(st.st_ctim.tv_sec);
-                    _ = c.localtime_r(&time_val, &tm_val);
-                    var t_buf: [64]u8 = undefined;
-                    const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
-                    var tz_buf: [16]u8 = undefined;
-                    const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
-                    try writer.print("{s}.{d:0>9} {s}", .{ t_buf[0..len], st.st_ctim.tv_nsec, tz_buf[0..tz_len] });
-                },
-                'Z' => try writer.print("{d}", .{st.st_ctim.tv_sec}),
-                '%' => try writer.writeByte('%'),
-                else => {
-                    try writer.writeByte('%');
-                    try writer.writeByte(fmt[idx]);
-                },
-            }
-        } else if (is_printf and fmt[idx] == '\\' and idx + 1 < fmt.len) {
-            idx += 1;
-            switch (fmt[idx]) {
-                'n' => try writer.writeByte('\n'),
-                't' => try writer.writeByte('\t'),
-                'r' => try writer.writeByte('\r'),
-                '\\' => try writer.writeByte('\\'),
-                else => {
-                    try writer.writeByte('\\');
-                    try writer.writeByte(fmt[idx]);
-                },
-            }
-        } else {
-            try writer.writeByte(fmt[idx]);
-        }
-        idx += 1;
+fn findMountPoint(file: []const u8, st: *const c.struct_stat, buf: []u8) ?[]const u8 {
+    const orig_fd = c.open(".", c.O_RDONLY | c.O_DIRECTORY | c.O_CLOEXEC);
+    if (orig_fd < 0) return null;
+    defer {
+        _ = c.fchdir(orig_fd);
+        _ = c.close(orig_fd);
     }
-    if (!is_printf) {
-        try writer.writeByte('\n');
+
+    var last_stat: c.struct_stat = st.*;
+
+    if ((st.st_mode & c.S_IFMT) == c.S_IFDIR) {
+        var file_z_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        if (file.len + 1 > file_z_buf.len) return null;
+        @memcpy(file_z_buf[0..file.len], file);
+        file_z_buf[file.len] = 0;
+        if (c.chdir(file_z_buf[0..file.len :0].ptr) < 0) return null;
+    } else {
+        const dir = std.fs.path.dirname(file) orelse ".";
+        var dir_z_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        if (dir.len + 1 > dir_z_buf.len) return null;
+        @memcpy(dir_z_buf[0..dir.len], dir);
+        dir_z_buf[dir.len] = 0;
+        if (c.chdir(dir_z_buf[0..dir.len :0].ptr) < 0) return null;
+        if (c.stat(".", &last_stat) < 0) return null;
+    }
+
+    while (true) {
+        var parent_st: c.struct_stat = undefined;
+        if (c.stat("..", &parent_st) < 0) break;
+        if (parent_st.st_dev != last_stat.st_dev or parent_st.st_ino == last_stat.st_ino) {
+            break;
+        }
+        if (c.chdir("..") < 0) break;
+        last_stat = parent_st;
+    }
+
+    const cwd_ptr = c.getcwd(buf.ptr, buf.len);
+    if (cwd_ptr != null) {
+        return std.mem.span(cwd_ptr);
+    }
+    return null;
+}
+
+fn printQuoted(writer: anytype, name_str: []const u8) !void {
+    const q_style = c.getenv("QUOTING_STYLE");
+    const is_locale = if (q_style != null) std.mem.eql(u8, std.mem.span(q_style), "locale") else false;
+    if (is_locale) {
+        try writer.writeByte('\'');
+        for (name_str) |ch| {
+            if (ch == '\'') {
+                try writer.writeAll("\\'");
+            } else {
+                try writer.writeByte(ch);
+            }
+        }
+        try writer.writeByte('\'');
+    } else {
+        const has_single_quote = std.mem.indexOfScalar(u8, name_str, '\'') != null;
+        const has_double_quote = std.mem.indexOfScalar(u8, name_str, '"') != null;
+        const has_special = for (name_str) |ch| {
+            if (ch == '$' or ch == '`' or ch == '\\' or ch == '!' or ch == '\n' or ch == '\t') break true;
+        } else false;
+
+        if (has_single_quote and !has_double_quote and !has_special) {
+            try writer.writeByte('"');
+            try writer.writeAll(name_str);
+            try writer.writeByte('"');
+        } else {
+            try writer.writeByte('\'');
+            for (name_str) |ch| {
+                if (ch == '\'') {
+                    try writer.writeAll("'\\''");
+                } else {
+                    try writer.writeByte(ch);
+                }
+            }
+            try writer.writeByte('\'');
+        }
     }
 }
 
-fn printFormattedFs(writer: anytype, fmt: []const u8, name_str: []const u8, sv: *const c.struct_statvfs, is_printf: bool) !void {
-    var idx: usize = 0;
-    while (idx < fmt.len) {
-        if (fmt[idx] == '%' and idx + 1 < fmt.len) {
-            idx += 1;
-            switch (fmt[idx]) {
-                'n' => try writer.writeAll(name_str),
-                'i' => try writer.print("{x}", .{sv.f_fsid}),
-                'l' => try writer.print("{d}", .{sv.f_namemax}),
-                's' => try writer.print("{d}", .{sv.f_bsize}),
-                'S' => try writer.print("{d}", .{sv.f_frsize}),
-                'b' => try writer.print("{d}", .{sv.f_blocks}),
-                'f' => try writer.print("{d}", .{sv.f_bfree}),
-                'a' => try writer.print("{d}", .{sv.f_bavail}),
-                'c' => try writer.print("{d}", .{sv.f_files}),
-                'd' => try writer.print("{d}", .{sv.f_ffree}),
-                '%' => try writer.writeByte('%'),
-                else => {
-                    try writer.writeByte('%');
-                    try writer.writeByte(fmt[idx]);
-                },
-            }
-        } else if (is_printf and fmt[idx] == '\\' and idx + 1 < fmt.len) {
-            idx += 1;
-            switch (fmt[idx]) {
-                'n' => try writer.writeByte('\n'),
-                't' => try writer.writeByte('\t'),
-                '\\' => try writer.writeByte('\\'),
-                else => {
-                    try writer.writeByte('\\');
-                    try writer.writeByte(fmt[idx]);
-                },
-            }
-        } else {
-            try writer.writeByte(fmt[idx]);
+fn printPaddedString(writer: anytype, prefix: []const u8, str: []const u8) !void {
+    if (prefix.len <= 1) {
+        try writer.writeAll(str);
+        return;
+    }
+
+    var left_align = false;
+    var zero_pad = false;
+    var idx: usize = 1;
+    while (idx < prefix.len) : (idx += 1) {
+        if (prefix[idx] == '-') {
+            left_align = true;
+        } else if (prefix[idx] == '0') {
+            zero_pad = true;
+        } else if (std.ascii.isDigit(prefix[idx])) {
+            break;
         }
-        idx += 1;
     }
+    const width_start = idx;
+    while (idx < prefix.len and std.ascii.isDigit(prefix[idx])) : (idx += 1) {}
+    const width = if (idx > width_start) std.fmt.parseInt(usize, prefix[width_start..idx], 10) catch 0 else 0;
+
+    if (str.len >= width) {
+        try writer.writeAll(str);
+    } else {
+        const pad_len = width - str.len;
+        if (left_align) {
+            try writer.writeAll(str);
+            var k: usize = 0;
+            while (k < pad_len) : (k += 1) try writer.writeByte(' ');
+        } else if (zero_pad) {
+            var k: usize = 0;
+            while (k < pad_len) : (k += 1) try writer.writeByte('0');
+            try writer.writeAll(str);
+        } else {
+            var k: usize = 0;
+            while (k < pad_len) : (k += 1) try writer.writeByte(' ');
+            try writer.writeAll(str);
+        }
+    }
+}
+
+fn formatSecFrac(writer: anytype, prefix: []const u8, sec: isize, nsec: isize, has_precision: bool, precision: usize) !void {
+    if (has_precision) {
+        var nsec_buf: [16]u8 = undefined;
+        _ = c.snprintf(&nsec_buf, nsec_buf.len, "%09ld", nsec);
+        const prec = @min(precision, 9);
+        var time_buf: [128]u8 = undefined;
+        var f_idx: usize = 0;
+        const s_str = try std.fmt.bufPrint(time_buf[f_idx..], "{d}.", .{sec});
+        f_idx += s_str.len;
+        @memcpy(time_buf[f_idx .. f_idx + prec], nsec_buf[0..prec]);
+        f_idx += prec;
+        while (f_idx - s_str.len < precision and f_idx < time_buf.len) : (f_idx += 1) {
+            time_buf[f_idx] = '0';
+        }
+        const full_time = time_buf[0..f_idx];
+        try printPaddedString(writer, prefix, full_time);
+    } else {
+        var int_buf: [32]u8 = undefined;
+        const s_str = try std.fmt.bufPrint(&int_buf, "{d}", .{sec});
+        try printPaddedString(writer, prefix, s_str);
+    }
+}
+
+fn printFormatted(
+    stdout: anytype,
+    stderr: anytype,
+    fmt: []const u8,
+    file: []const u8,
+    st: ?*const c.struct_stat,
+    sv: ?*const c.struct_statvfs,
+    link_target: ?[]const u8,
+    btime: ?c.struct_timespec,
+    is_printf: bool,
+    allocator: std.mem.Allocator,
+) !bool {
+    var success = true;
+    var idx: usize = 0;
+
+    while (idx < fmt.len) {
+        if (fmt[idx] == '%') {
+            const pct_start = idx;
+            idx += 1;
+
+            // Flags: '-', '+', ' ', '#', '0', '\'', 'I'
+            while (idx < fmt.len and (fmt[idx] == '-' or fmt[idx] == '+' or fmt[idx] == ' ' or fmt[idx] == '#' or fmt[idx] == '0' or fmt[idx] == '\'' or fmt[idx] == 'I')) : (idx += 1) {}
+
+            // Width
+            while (idx < fmt.len and std.ascii.isDigit(fmt[idx])) : (idx += 1) {}
+
+            // Precision
+            var has_precision = false;
+            var precision: usize = 0;
+            if (idx < fmt.len and fmt[idx] == '.') {
+                has_precision = true;
+                idx += 1;
+                const prec_start = idx;
+                while (idx < fmt.len and std.ascii.isDigit(fmt[idx])) : (idx += 1) {}
+                if (idx > prec_start) {
+                    precision = std.fmt.parseInt(usize, fmt[prec_start..idx], 10) catch 9;
+                } else {
+                    precision = 9;
+                }
+            }
+
+            const prefix_len = idx - pct_start;
+
+            if (idx >= fmt.len) {
+                if (prefix_len > 1) {
+                    const msg = try std.fmt.allocPrint(allocator, "'{s}': invalid directive", .{fmt[pct_start..]});
+                    defer allocator.free(msg);
+                    try errors.printError(stderr, name, msg);
+                    return false;
+                }
+                try stdout.writeByte('%');
+                break;
+            }
+
+            const next_ch = fmt[idx];
+            if (next_ch == '%') {
+                if (prefix_len > 1) {
+                    const msg = try std.fmt.allocPrint(allocator, "'{s}%': invalid directive", .{fmt[pct_start..idx]});
+                    defer allocator.free(msg);
+                    try errors.printError(stderr, name, msg);
+                    return false;
+                }
+                try stdout.writeByte('%');
+                idx += 1;
+                continue;
+            }
+
+            var mod_char: ?u8 = null;
+            var spec = next_ch;
+            const prefix = fmt[pct_start..idx];
+            idx += 1;
+
+            if ((spec == 'H' or spec == 'L') and st != null and idx < fmt.len and (fmt[idx] == 'd' or fmt[idx] == 'r')) {
+                mod_char = spec;
+                spec = fmt[idx];
+                idx += 1;
+            }
+
+            if (st) |stat_ptr| {
+                switch (spec) {
+                    'a' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{o}", .{stat_ptr.st_mode & 0o7777});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'A' => {
+                        var perm_buf: [11]u8 = undefined;
+                        getPermString(stat_ptr.st_mode, &perm_buf);
+                        try printPaddedString(stdout, prefix, perm_buf[0..10]);
+                    },
+                    'b' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_blocks});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'B' => {
+                        try printPaddedString(stdout, prefix, "512");
+                    },
+                    'd' => {
+                        var buf: [32]u8 = undefined;
+                        const val = if (mod_char == 'H')
+                            c.gnu_dev_major(stat_ptr.st_dev)
+                        else if (mod_char == 'L')
+                            c.gnu_dev_minor(stat_ptr.st_dev)
+                        else
+                            stat_ptr.st_dev;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{val});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'D' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{stat_ptr.st_dev});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'f' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{stat_ptr.st_mode});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'F' => {
+                        try printPaddedString(stdout, prefix, getFileType(stat_ptr.st_mode, stat_ptr.st_size));
+                    },
+                    'g' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_gid});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'G' => {
+                        const gr = c.getgrgid(stat_ptr.st_gid);
+                        const gname = if (gr != null and gr.*.gr_name != null) std.mem.span(gr.*.gr_name) else "UNKNOWN";
+                        try printPaddedString(stdout, prefix, gname);
+                    },
+                    'h' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_nlink});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'i' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_ino});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'm' => {
+                        var mp_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+                        const mp = findMountPoint(file, stat_ptr, &mp_buf) orelse blk: {
+                            success = false;
+                            break :blk "?";
+                        };
+                        try printPaddedString(stdout, prefix, mp);
+                    },
+                    'n' => {
+                        try printPaddedString(stdout, prefix, file);
+                    },
+                    'N' => {
+                        try printQuoted(stdout, file);
+                        if (link_target) |tgt| {
+                            try stdout.writeAll(" -> ");
+                            try printQuoted(stdout, tgt);
+                        }
+                    },
+                    'o' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_blksize});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'r' => {
+                        var buf: [32]u8 = undefined;
+                        const val = if (mod_char == 'H')
+                            c.gnu_dev_major(stat_ptr.st_rdev)
+                        else if (mod_char == 'L')
+                            c.gnu_dev_minor(stat_ptr.st_rdev)
+                        else
+                            stat_ptr.st_rdev;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{val});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'R' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{stat_ptr.st_rdev});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    's' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_size});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    't' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{c.gnu_dev_major(stat_ptr.st_rdev)});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'T' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{c.gnu_dev_minor(stat_ptr.st_rdev)});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'u' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{stat_ptr.st_uid});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'U' => {
+                        const pw = c.getpwuid(stat_ptr.st_uid);
+                        const uname = if (pw != null and pw.*.pw_name != null) std.mem.span(pw.*.pw_name) else "UNKNOWN";
+                        try printPaddedString(stdout, prefix, uname);
+                    },
+                    'w' => {
+                        if (btime) |bt| {
+                            var tm_val: c.struct_tm = undefined;
+                            const time_val: c.time_t = @intCast(bt.tv_sec);
+                            _ = c.localtime_r(&time_val, &tm_val);
+                            var t_buf: [64]u8 = undefined;
+                            const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
+                            var tz_buf: [16]u8 = undefined;
+                            const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
+                            var full_buf: [128]u8 = undefined;
+                            const str = try std.fmt.bufPrint(&full_buf, "{s}.{d:0>9} {s}", .{ t_buf[0..len], bt.tv_nsec, tz_buf[0..tz_len] });
+                            try printPaddedString(stdout, prefix, str);
+                        } else {
+                            try printPaddedString(stdout, prefix, "-");
+                        }
+                    },
+                    'W' => {
+                        if (btime) |bt| {
+                            try formatSecFrac(stdout, prefix, bt.tv_sec, bt.tv_nsec, has_precision, precision);
+                        } else {
+                            try printPaddedString(stdout, prefix, "0");
+                        }
+                    },
+                    'x' => {
+                        var tm_val: c.struct_tm = undefined;
+                        const time_val: c.time_t = @intCast(stat_ptr.st_atim.tv_sec);
+                        _ = c.localtime_r(&time_val, &tm_val);
+                        var t_buf: [64]u8 = undefined;
+                        const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
+                        var tz_buf: [16]u8 = undefined;
+                        const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
+                        var full_buf: [128]u8 = undefined;
+                        const str = try std.fmt.bufPrint(&full_buf, "{s}.{d:0>9} {s}", .{ t_buf[0..len], stat_ptr.st_atim.tv_nsec, tz_buf[0..tz_len] });
+                        try printPaddedString(stdout, prefix, str);
+                    },
+                    'X' => {
+                        try formatSecFrac(stdout, prefix, stat_ptr.st_atim.tv_sec, stat_ptr.st_atim.tv_nsec, has_precision, precision);
+                    },
+                    'y' => {
+                        var tm_val: c.struct_tm = undefined;
+                        const time_val: c.time_t = @intCast(stat_ptr.st_mtim.tv_sec);
+                        _ = c.localtime_r(&time_val, &tm_val);
+                        var t_buf: [64]u8 = undefined;
+                        const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
+                        var tz_buf: [16]u8 = undefined;
+                        const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
+                        var full_buf: [128]u8 = undefined;
+                        const str = try std.fmt.bufPrint(&full_buf, "{s}.{d:0>9} {s}", .{ t_buf[0..len], stat_ptr.st_mtim.tv_nsec, tz_buf[0..tz_len] });
+                        try printPaddedString(stdout, prefix, str);
+                    },
+                    'Y' => {
+                        try formatSecFrac(stdout, prefix, stat_ptr.st_mtim.tv_sec, stat_ptr.st_mtim.tv_nsec, has_precision, precision);
+                    },
+                    'z' => {
+                        var tm_val: c.struct_tm = undefined;
+                        const time_val: c.time_t = @intCast(stat_ptr.st_ctim.tv_sec);
+                        _ = c.localtime_r(&time_val, &tm_val);
+                        var t_buf: [64]u8 = undefined;
+                        const len = c.strftime(&t_buf, t_buf.len, "%Y-%m-%d %H:%M:%S", &tm_val);
+                        var tz_buf: [16]u8 = undefined;
+                        const tz_len = c.strftime(&tz_buf, tz_buf.len, "%z", &tm_val);
+                        var full_buf: [128]u8 = undefined;
+                        const str = try std.fmt.bufPrint(&full_buf, "{s}.{d:0>9} {s}", .{ t_buf[0..len], stat_ptr.st_ctim.tv_nsec, tz_buf[0..tz_len] });
+                        try printPaddedString(stdout, prefix, str);
+                    },
+                    'Z' => {
+                        try formatSecFrac(stdout, prefix, stat_ptr.st_ctim.tv_sec, stat_ptr.st_ctim.tv_nsec, has_precision, precision);
+                    },
+                    else => {
+                        try stdout.writeByte('?');
+                    },
+                }
+            } else if (sv) |sv_ptr| {
+                switch (spec) {
+                    'a' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_bavail});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'b' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_blocks});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'c' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_files});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'd' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_ffree});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'f' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_bfree});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'i' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{x}", .{sv_ptr.f_fsid});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'l' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_namemax});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'n' => {
+                        try printPaddedString(stdout, prefix, file);
+                    },
+                    's' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_bsize});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    'S' => {
+                        var buf: [32]u8 = undefined;
+                        const s = try std.fmt.bufPrint(&buf, "{d}", .{sv_ptr.f_frsize});
+                        try printPaddedString(stdout, prefix, s);
+                    },
+                    else => {
+                        try stdout.writeByte('?');
+                    },
+                }
+            }
+            continue;
+        } else if (is_printf and fmt[idx] == '\\') {
+            idx += 1;
+            if (idx >= fmt.len) {
+                try errors.printError(stderr, name, "warning: backslash at end of format");
+                try stdout.writeByte('\\');
+                break;
+            }
+            const esc = fmt[idx];
+            if (esc >= '0' and esc <= '7') {
+                var val: u8 = esc - '0';
+                var count: usize = 1;
+                idx += 1;
+                while (count < 3 and idx < fmt.len and fmt[idx] >= '0' and fmt[idx] <= '7') : (count += 1) {
+                    val = val * 8 + (fmt[idx] - '0');
+                    idx += 1;
+                }
+                try stdout.writeByte(val);
+            } else if (esc == 'x') {
+                if (idx + 1 < fmt.len and std.ascii.isHex(fmt[idx + 1])) {
+                    idx += 1;
+                    var val: u8 = std.fmt.charToDigit(fmt[idx], 16) catch 0;
+                    idx += 1;
+                    if (idx < fmt.len and std.ascii.isHex(fmt[idx])) {
+                        val = val * 16 + (std.fmt.charToDigit(fmt[idx], 16) catch 0);
+                        idx += 1;
+                    }
+                    try stdout.writeByte(val);
+                } else {
+                    try errors.printError(stderr, name, "warning: unrecognized escape '\\x'");
+                    try stdout.writeByte('x');
+                    idx += 1;
+                }
+            } else {
+                idx += 1;
+                switch (esc) {
+                    'a' => try stdout.writeByte(0x07),
+                    'b' => try stdout.writeByte(0x08),
+                    'e' => try stdout.writeByte(0x1B),
+                    'f' => try stdout.writeByte(0x0C),
+                    'n' => try stdout.writeByte('\n'),
+                    'r' => try stdout.writeByte('\r'),
+                    't' => try stdout.writeByte('\t'),
+                    'v' => try stdout.writeByte(0x0B),
+                    '\\', '"' => try stdout.writeByte(esc),
+                    else => {
+                        const warn = try std.fmt.allocPrint(allocator, "warning: unrecognized escape '\\{c}'", .{esc});
+                        defer allocator.free(warn);
+                        try errors.printError(stderr, name, warn);
+                        try stdout.writeByte(esc);
+                    },
+                }
+            }
+            continue;
+        } else {
+            try stdout.writeByte(fmt[idx]);
+            idx += 1;
+        }
+    }
+
     if (!is_printf) {
-        try writer.writeByte('\n');
+        try stdout.writeByte('\n');
     }
+    return success;
 }
 
 pub fn printHelp(writer: anytype) !void {

@@ -1,9 +1,6 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
-const c = @cImport({
-    @cInclude("unistd.h");
-    @cInclude("stdlib.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "nproc";
 pub const version: []const u8 = "0.1.0";
@@ -27,11 +24,23 @@ fn getOmpThreadLimit() ?u32 {
     return num;
 }
 
+fn parseIgnore(str: []const u8) ?u32 {
+    var s = std.mem.trimStart(u8, str, " \t\r\n");
+    if (s.len > 0 and s[0] == '+') {
+        s = s[1..];
+    }
+    if (s.len == 0) return null;
+    for (s) |ch| {
+        if (!std.ascii.isDigit(ch)) return null;
+    }
+    return std.fmt.parseInt(u32, s, 10) catch null;
+}
+
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var stdout_buffer: [4096]u8 = undefined;
     var stderr_buffer: [4096]u8 = undefined;
-    var stdout_writer: std.Io.File.Writer = .init(.stdout(), std.Options.debug_io, &stdout_buffer);
-    var stderr_writer: std.Io.File.Writer = .init(.stderr(), std.Options.debug_io, &stderr_buffer);
+    var stdout_writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &stdout_buffer);
+    var stderr_writer: std.Io.File.Writer = .initStreaming(.stderr(), std.Options.debug_io, &stderr_buffer);
     const stdout = &stdout_writer.interface;
     const stderr = &stderr_writer.interface;
     defer stdout.flush() catch {};
@@ -40,23 +49,45 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var all_cpus = false;
     var ignore_count: u32 = 0;
 
-    for (args[1..]) |arg| {
+    var idx: usize = 1;
+    while (idx < args.len) : (idx += 1) {
+        const arg = args[idx];
         if (std.mem.eql(u8, arg, "--help")) {
-            try printHelp(stdout);
+            printHelp(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
-            try printVersion(stdout);
+            printVersion(stdout) catch return 1;
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--all")) {
             all_cpus = true;
         } else if (std.mem.startsWith(u8, arg, "--ignore=")) {
             const num_str = arg["--ignore=".len..];
-            ignore_count = std.fmt.parseInt(u32, num_str, 10) catch {
+            if (parseIgnore(num_str)) |val| {
+                ignore_count = val;
+            } else {
                 try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid number '{s}'", .{num_str}));
                 return 1;
-            };
+            }
+        } else if (std.mem.eql(u8, arg, "--ignore")) {
+            idx += 1;
+            if (idx >= args.len) {
+                try errors.printError(stderr, name, "option '--ignore' requires an argument");
+                return 1;
+            }
+            const num_str = args[idx];
+            if (parseIgnore(num_str)) |val| {
+                ignore_count = val;
+            } else {
+                try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "invalid number '{s}'", .{num_str}));
+                return 1;
+            }
         } else if (std.mem.startsWith(u8, arg, "-")) {
             try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "unrecognized option '{s}'", .{arg}));
+            return 1;
+        } else {
+            try errors.printExtraOperand(stderr, name, arg);
             return 1;
         }
     }
@@ -84,7 +115,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         result = 1;
     }
 
-    try stdout.print("{d}\n", .{result});
+    stdout.print("{d}\n", .{result}) catch return 1;
+    stdout.flush() catch return 1;
     return 0;
 }
 

@@ -1,9 +1,6 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
-const c = @cImport({
-    @cInclude("unistd.h");
-    @cInclude("stdio.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "hostid";
 pub const version: []const u8 = "0.1.0";
@@ -18,24 +15,52 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     defer stdout.flush() catch {};
     defer stderr.flush() catch {};
 
+    // 1. Scan for --help and --version anywhere before --
     for (args[1..]) |arg| {
-        if (std.mem.eql(u8, arg, "--help")) {
+        if (std.mem.eql(u8, arg, "--")) {
+            break;
+        } else if (std.mem.eql(u8, arg, "--help")) {
             try printHelp(stdout);
+            stdout.flush() catch return 1;
             return 0;
         } else if (std.mem.eql(u8, arg, "--version")) {
             try printVersion(stdout);
+            stdout.flush() catch return 1;
             return 0;
-        } else if (std.mem.startsWith(u8, arg, "-")) {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "unrecognized option '{s}'", .{arg}));
-            return 1;
-        } else {
-            try errors.printError(stderr, name, try std.fmt.allocPrint(allocator, "extra operand '{s}'", .{arg}));
-            return 1;
         }
     }
 
+    // 2. Separate options and operands
+    var operands: std.ArrayList([]const u8) = .empty;
+    defer operands.deinit(allocator);
+
+    var parsing_options = true;
+    for (args[1..]) |arg| {
+        if (parsing_options) {
+            if (std.mem.eql(u8, arg, "--")) {
+                parsing_options = false;
+                continue;
+            }
+            if (std.mem.startsWith(u8, arg, "--") and arg.len > 2) {
+                try stderr.print("hostid: unrecognized option '{s}'\nTry 'hostid --help' for more information.\n", .{arg});
+                return 1;
+            }
+            if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+                try stderr.print("hostid: invalid option -- '{c}'\nTry 'hostid --help' for more information.\n", .{arg[1]});
+                return 1;
+            }
+        }
+        try operands.append(allocator, arg);
+    }
+
+    if (operands.items.len > 0) {
+        try stderr.print("hostid: extra operand '{s}'\nTry 'hostid --help' for more information.\n", .{operands.items[0]});
+        return 1;
+    }
+
     const hostid = c.gethostid();
-    try stdout.print("{x:0>8}\n", .{@as(u32, @truncate(@as(u64, @bitCast(hostid))))});
+    stdout.print("{x:0>8}\n", .{@as(u32, @truncate(@as(u64, @bitCast(hostid))))}) catch return 1;
+    stdout.flush() catch return 1;
     return 0;
 }
 
@@ -46,6 +71,8 @@ pub fn printHelp(writer: anytype) !void {
         \\
         \\      --help     display this help and exit
         \\      --version  output version information and exit
+        \\
+        \\GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
         \\
     );
 }

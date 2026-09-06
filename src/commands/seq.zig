@@ -1,15 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 
-const c = @cImport({
-    @cDefine("_GNU_SOURCE", "1");
-    @cInclude("errno.h");
-    @cInclude("stdlib.h");
-    @cInclude("stdio.h");
-    @cInclude("string.h");
-    @cInclude("locale.h");
-    @cInclude("unistd.h");
-});
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "seq";
 pub const version: []const u8 = "0.1.0";

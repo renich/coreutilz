@@ -4,7 +4,7 @@ const errors = @import("../utils/errors.zig");
 pub const name: []const u8 = "dirname";
 pub const version: []const u8 = "0.1.0";
 
-pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
+pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var stdout_buffer: [4096]u8 = undefined;
     var stderr_buffer: [4096]u8 = undefined;
     var stdout_file_writer: std.Io.File.Writer = .init(.stdout(), std.Options.debug_io, &stdout_buffer);
@@ -15,11 +15,24 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
     defer stderr.flush() catch {};
 
     var zero: bool = false;
-    var operands_start: usize = 1;
+    var operands: std.ArrayList([]const u8) = .empty;
+    defer operands.deinit(allocator);
 
-    // Process options
-    for (args[1..], 0..) |arg, i| {
-        if (std.mem.eql(u8, arg, "--help")) {
+    const posixly_correct = errors.isPosixlyCorrect();
+    var stop_options = false;
+
+    var i: usize = 1;
+    while (i < args.len) : (i += 1) {
+        const arg = args[i];
+        if (stop_options) {
+            try operands.append(allocator, arg);
+            continue;
+        }
+
+        if (std.mem.eql(u8, arg, "--")) {
+            stop_options = true;
+            continue;
+        } else if (std.mem.eql(u8, arg, "--help")) {
             try printHelp(stdout);
             try stdout.flush();
             return 0;
@@ -27,27 +40,38 @@ pub fn run(args: [][]const u8, _: std.mem.Allocator) !u8 {
             try printVersion(stdout);
             try stdout.flush();
             return 0;
-        } else if (std.mem.eql(u8, arg, "-z") or std.mem.eql(u8, arg, "--zero")) {
+        } else if (std.mem.eql(u8, arg, "--zero")) {
             zero = true;
-            operands_start = i + 2;
-        } else if (std.mem.startsWith(u8, arg, "-")) {
-            // Stop at first unknown option or handle it
-            // For dirname, it doesn't have many options
+        } else if (std.mem.startsWith(u8, arg, "--")) {
+            try errors.printUnrecognizedOption(stderr, name, arg);
+            return 1;
+        } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+            for (arg[1..]) |c| {
+                switch (c) {
+                    'z' => zero = true,
+                    else => {
+                        try errors.printInvalidOption(stderr, name, c);
+                        return 1;
+                    },
+                }
+            }
         } else {
-            operands_start = i + 1;
-            break;
+            try operands.append(allocator, arg);
+            if (posixly_correct) {
+                stop_options = true;
+            }
         }
     }
 
-    if (args.len <= operands_start) {
-        try errors.printError(stderr, name, "missing operand");
+    if (operands.items.len == 0) {
+        try errors.printMissingOperand(stderr, name);
         return 1;
     }
 
     const terminator: u8 = if (zero) 0 else '\n';
 
     // Process all operands
-    for (args[operands_start..]) |path| {
+    for (operands.items) |path| {
         const result = getDirname(path);
         try stdout.print("{s}{c}", .{ result, terminator });
     }

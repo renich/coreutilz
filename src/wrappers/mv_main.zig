@@ -1,8 +1,6 @@
 const std = @import("std");
 const coreutilz = @import("coreutilz");
 
-pub fn main(init: std.process.Init) !void {
-    const args = try coreutilz.utils.args.getArgs(init, init.arena.allocator());
-    const exit_code = try coreutilz.mv_cmd.run(args, std.heap.page_allocator);
-    std.process.exit(exit_code);
+pub fn main(init: std.process.Init.Minimal) u8 {
+    return coreutilz.utils.runner.runWrapper("mv", coreutilz.mv_cmd.run, init);
 }

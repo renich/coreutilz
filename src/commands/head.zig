@@ -1,5 +1,9 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
+const c = @cImport({
+    @cInclude("unistd.h");
+    @cInclude("errno.h");
+});
 
 pub const name: []const u8 = "head";
 pub const version: []const u8 = "0.1.0";
@@ -68,8 +72,11 @@ fn parseNumber(str: []const u8) !usize {
     }
 
     if (num_part.len == 0) return error.InvalidNumber;
-    const val = std.fmt.parseInt(usize, num_part, 10) catch return error.InvalidNumber;
-    return val * multiplier;
+    const val = std.fmt.parseInt(usize, num_part, 10) catch |err| switch (err) {
+        error.Overflow => return std.math.maxInt(usize),
+        else => return error.InvalidNumber,
+    };
+    return std.math.mul(usize, val, multiplier) catch std.math.maxInt(usize);
 }
 
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
@@ -91,19 +98,38 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var file_start: usize = args.len;
     var i: usize = 1;
 
-    // Check for obsolete syntax like -5 or -100
+    // Check for obsolete syntax like -5 or -100 or -1k
     if (args.len > 1 and args[1].len > 1 and args[1][0] == '-' and std.ascii.isDigit(args[1][1])) {
         const opt = args[1][1..];
         var end_idx: usize = 0;
         while (end_idx < opt.len and std.ascii.isDigit(opt[end_idx])) : (end_idx += 1) {}
-        n_units = std.fmt.parseInt(usize, opt[0..end_idx], 10) catch 10;
+        const base_units = std.fmt.parseInt(usize, opt[0..end_idx], 10) catch 10;
         count_lines = true;
         elide_from_end = false;
+        var multiplier: usize = 1;
 
         var suffix = opt[end_idx..];
         while (suffix.len > 0) {
             switch (suffix[0]) {
-                'c' => count_lines = false,
+                'c' => {
+                    count_lines = false;
+                    multiplier = 1;
+                },
+                'b' => {
+                    count_lines = false;
+                    multiplier = 512;
+                },
+                'k' => {
+                    count_lines = false;
+                    multiplier = 1024;
+                },
+                'm' => {
+                    count_lines = false;
+                    multiplier = 1024 * 1024;
+                },
+                'l' => {
+                    count_lines = true;
+                },
                 'q' => header_mode = .never,
                 'v' => header_mode = .always,
                 'z' => line_delim = 0,
@@ -111,6 +137,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             }
             suffix = suffix[1..];
         }
+        n_units = std.math.mul(usize, base_units, multiplier) catch std.math.maxInt(usize);
         i = 2;
     }
 
@@ -131,10 +158,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
 
         if (std.mem.startsWith(u8, arg, "--")) {
             if (std.mem.eql(u8, arg, "--help")) {
-                try printHelp(stdout);
+                printHelp(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.eql(u8, arg, "--version")) {
-                try printVersion(stdout);
+                printVersion(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.startsWith(u8, arg, "--lines=")) {
                 var val_str = arg["--lines=".len..];
@@ -216,8 +245,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             // Short options
             var j: usize = 1;
             while (j < arg.len) : (j += 1) {
-                const c = arg[j];
-                switch (c) {
+                const ch = arg[j];
+                switch (ch) {
                     'n' => {
                         count_lines = true;
                         var val_str: []const u8 = undefined;
@@ -276,7 +305,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                     'v' => header_mode = .always,
                     'z' => line_delim = 0,
                     else => {
-                        try stderr.print("head: invalid option -- '{c}'\n", .{c});
+                        try stderr.print("head: invalid option -- '{c}'\n", .{ch});
                         return 1;
                     },
                 }
@@ -342,151 +371,215 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             first_header = false;
         }
 
+        if (elide_from_end and n_units == std.math.maxInt(usize)) {
+            continue;
+        }
+
         if (count_lines) {
             if (elide_from_end) {
-                try processLinesElide(file, is_regular, is_stdin, n_units, line_delim, stdout, allocator);
+                processLinesElide(file, n_units, line_delim, stdout, allocator) catch |err| switch (@as(anyerror, err)) {
+                    error.WriteFailed, error.BrokenPipe, error.DiskFull, error.NoSpaceLeft => {
+                        try errors.printError(stderr, name, "error writing 'standard output'");
+                        return 1;
+                    },
+                    else => return err,
+                };
             } else {
-                try processLinesHead(file, n_units, line_delim, stdout);
+                processLinesHead(file, n_units, line_delim, stdout) catch |err| switch (@as(anyerror, err)) {
+                    error.WriteFailed, error.BrokenPipe, error.DiskFull, error.NoSpaceLeft => {
+                        try errors.printError(stderr, name, "error writing 'standard output'");
+                        return 1;
+                    },
+                    else => return err,
+                };
             }
         } else {
             if (elide_from_end) {
-                try processBytesElide(file, is_regular, file_size, n_units, stdout, allocator);
+                processBytesElide(file, is_regular, file_size, n_units, stdout, allocator) catch |err| switch (@as(anyerror, err)) {
+                    error.WriteFailed, error.BrokenPipe, error.DiskFull, error.NoSpaceLeft => {
+                        try errors.printError(stderr, name, "error writing 'standard output'");
+                        return 1;
+                    },
+                    else => return err,
+                };
             } else {
-                try processBytesHead(file, n_units, stdout);
+                processBytesHead(file, n_units, stdout) catch |err| switch (@as(anyerror, err)) {
+                    error.WriteFailed, error.BrokenPipe, error.DiskFull, error.NoSpaceLeft => {
+                        try errors.printError(stderr, name, "error writing 'standard output'");
+                        return 1;
+                    },
+                    else => return err,
+                };
             }
         }
-        try stdout.flush();
+        stdout.flush() catch |err| switch (@as(anyerror, err)) {
+            error.WriteFailed, error.BrokenPipe, error.DiskFull, error.NoSpaceLeft => {
+                try errors.printError(stderr, name, "error writing 'standard output'");
+                return 1;
+            },
+            else => return err,
+        };
     }
 
     return exit_status;
 }
 
+fn doRead(fd: std.posix.fd_t, buf: []u8) !usize {
+    while (true) {
+        const rc = c.read(fd, buf.ptr, buf.len);
+        if (rc >= 0) return @intCast(rc);
+        const err = std.c._errno().*;
+        if (err == c.EINTR) continue;
+        return error.ReadError;
+    }
+}
+
+fn doLseek(fd: std.posix.fd_t, offset: i64, whence: c_int) ?u64 {
+    const rc = c.lseek(fd, offset, whence);
+    if (rc >= 0) {
+        return @intCast(rc);
+    }
+    return null;
+}
+
 fn processBytesHead(file: std.Io.File, count: usize, stdout: anytype) !void {
     if (count == 0) return;
-    var r_buf: [16384]u8 = undefined;
-    var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-    const reader = &r.interface;
-
-    var remaining = count;
     var buf: [16384]u8 = undefined;
+    var remaining = count;
 
     while (remaining > 0) {
         const to_read = @min(remaining, buf.len);
-        const bytes_read = try reader.readSliceShort(buf[0..to_read]);
+        const bytes_read = try doRead(file.handle, buf[0..to_read]);
         if (bytes_read == 0) break;
         try stdout.writeAll(buf[0..bytes_read]);
         remaining -= bytes_read;
     }
 }
 
-fn processBytesElide(file: std.Io.File, is_regular: bool, file_size: u64, elide_count: usize, stdout: anytype, allocator: std.mem.Allocator) !void {
+fn processBytesElide(file: std.Io.File, is_regular: bool, in_file_size: u64, elide_count: usize, stdout: anytype, allocator: std.mem.Allocator) !void {
     if (elide_count == 0) {
-        // Output entire file
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        const reader = &r.interface;
         var buf: [16384]u8 = undefined;
         while (true) {
-            const bytes_read = try reader.readSliceShort(&buf);
+            const bytes_read = try doRead(file.handle, &buf);
             if (bytes_read == 0) break;
             try stdout.writeAll(buf[0..bytes_read]);
         }
         return;
     }
 
-    if (is_regular) {
-        if (file_size <= elide_count) return;
-        const to_output = file_size - elide_count;
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        const reader = &r.interface;
-        var remaining = to_output;
+    const start_pos = doLseek(file.handle, 0, c.SEEK_CUR);
+
+    if (is_regular and in_file_size > 8192 and start_pos != null) {
+        const cur_pos = start_pos.?;
+        const diff = @as(i64, @intCast(in_file_size)) - @as(i64, @intCast(cur_pos));
+        const bytes_remaining: usize = if (diff > 0) @intCast(diff) else 0;
+        if (bytes_remaining <= elide_count) {
+            _ = doLseek(file.handle, 0, c.SEEK_END);
+            return;
+        }
+        var remaining = bytes_remaining - elide_count;
         var buf: [16384]u8 = undefined;
         while (remaining > 0) {
             const to_read = @min(remaining, buf.len);
-            const bytes_read = try reader.readSliceShort(buf[0..to_read]);
+            const bytes_read = try doRead(file.handle, buf[0..to_read]);
             if (bytes_read == 0) break;
             try stdout.writeAll(buf[0..bytes_read]);
             remaining -= bytes_read;
         }
-    } else {
-        // Non-seekable stream: FIFO buffer of size elide_count
-        var fifo = try std.ArrayList(u8).initCapacity(allocator, elide_count);
-        defer fifo.deinit(allocator);
+        return;
+    }
 
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        const reader = &r.interface;
-        var buf: [16384]u8 = undefined;
+    var cap: usize = @min(elide_count, 8192);
+    if (cap == 0) cap = 1;
+    var ring = try allocator.alloc(u8, cap);
+    defer allocator.free(ring);
+    var ring_len: usize = 0;
+    var ring_head: usize = 0;
+    var bytes_written: usize = 0;
 
-        while (true) {
-            const bytes_read = try reader.readSliceShort(&buf);
-            if (bytes_read == 0) break;
+    var buf: [16384]u8 = undefined;
+    while (true) {
+        const bytes_read = try doRead(file.handle, &buf);
+        if (bytes_read == 0) break;
 
-            for (buf[0..bytes_read]) |byte| {
-                if (fifo.items.len == elide_count) {
-                    try stdout.writeByte(fifo.items[0]);
-                    _ = fifo.orderedRemove(0);
+        for (buf[0..bytes_read]) |byte| {
+            if (ring_len < elide_count) {
+                if (ring_len == ring.len) {
+                    const new_cap = @min(elide_count, ring.len * 2);
+                    const new_ring = try allocator.alloc(u8, new_cap);
+                    var k: usize = 0;
+                    while (k < ring_len) : (k += 1) {
+                        new_ring[k] = ring[(ring_head + k) % ring.len];
+                    }
+                    allocator.free(ring);
+                    ring = new_ring;
+                    ring_head = 0;
                 }
-                try fifo.append(allocator, byte);
+                const idx = (ring_head + ring_len) % ring.len;
+                ring[idx] = byte;
+                ring_len += 1;
+            } else {
+                try stdout.writeByte(ring[ring_head]);
+                bytes_written += 1;
+                ring[ring_head] = byte;
+                ring_head = (ring_head + 1) % ring.len;
             }
         }
+    }
+
+    if (start_pos) |sp| {
+        _ = doLseek(file.handle, @as(i64, @intCast(sp + bytes_written)), c.SEEK_SET);
     }
 }
 
 fn processLinesHead(file: std.Io.File, count: usize, delim: u8, stdout: anytype) !void {
     if (count == 0) return;
-    var r_buf: [16384]u8 = undefined;
-    var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-    const reader = &r.interface;
-
-    var lines_done: usize = 0;
     var buf: [16384]u8 = undefined;
+    var lines_done: usize = 0;
 
     while (lines_done < count) {
-        const bytes_read = try reader.readSliceShort(&buf);
+        const bytes_read = try doRead(file.handle, &buf);
         if (bytes_read == 0) break;
 
-        const start: usize = 0;
+        var consumed: usize = 0;
         for (buf[0..bytes_read], 0..) |b, idx| {
             if (b == delim) {
                 lines_done += 1;
                 if (lines_done == count) {
-                    try stdout.writeAll(buf[start .. idx + 1]);
+                    try stdout.writeAll(buf[consumed .. idx + 1]);
+                    consumed = idx + 1;
+                    const unconsumed = bytes_read - consumed;
+                    if (unconsumed > 0) {
+                        _ = doLseek(file.handle, -@as(i64, @intCast(unconsumed)), c.SEEK_CUR);
+                    }
                     return;
                 }
             }
         }
-        try stdout.writeAll(buf[start..bytes_read]);
+        try stdout.writeAll(buf[consumed..bytes_read]);
     }
 }
 
-fn processLinesElide(file: std.Io.File, is_regular: bool, is_stdin: bool, elide_count: usize, delim: u8, stdout: anytype, allocator: std.mem.Allocator) !void {
+fn processLinesElide(file: std.Io.File, elide_count: usize, delim: u8, stdout: anytype, allocator: std.mem.Allocator) !void {
     if (elide_count == 0) {
-        // Output entire file
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        const reader = &r.interface;
         var buf: [16384]u8 = undefined;
         while (true) {
-            const bytes_read = try reader.readSliceShort(&buf);
+            const bytes_read = try doRead(file.handle, &buf);
             if (bytes_read == 0) break;
             try stdout.writeAll(buf[0..bytes_read]);
         }
         return;
     }
 
-    if (is_regular and !is_stdin) {
+    const start_pos = doLseek(file.handle, 0, c.SEEK_CUR);
+    if (start_pos) |sp| {
         // Pass 1: count lines
         var total_lines: usize = 0;
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        var reader = &r.interface;
         var buf: [16384]u8 = undefined;
         var last_byte: ?u8 = null;
 
         while (true) {
-            const bytes_read = try reader.readSliceShort(&buf);
+            const bytes_read = try doRead(file.handle, &buf);
             if (bytes_read == 0) break;
             for (buf[0..bytes_read]) |b| {
                 if (b == delim) {
@@ -499,34 +592,39 @@ fn processLinesElide(file: std.Io.File, is_regular: bool, is_stdin: bool, elide_
             total_lines += 1;
         }
 
-        if (total_lines <= elide_count) return;
+        if (total_lines <= elide_count) {
+            _ = doLseek(file.handle, 0, c.SEEK_END);
+            return;
+        }
         const to_output = total_lines - elide_count;
 
-        // Pass 2: seek to 0 and output to_output lines
-        _ = std.os.linux.lseek(file.handle, 0, 0);
-        var r2 = file.readerStreaming(std.Options.debug_io, &r_buf);
-        reader = &r2.interface;
-
+        // Pass 2: seek to start_pos and output to_output lines
+        _ = doLseek(file.handle, @as(i64, @intCast(sp)), c.SEEK_SET);
         var lines_done: usize = 0;
         while (lines_done < to_output) {
-            const bytes_read = try reader.readSliceShort(&buf);
+            const bytes_read = try doRead(file.handle, &buf);
             if (bytes_read == 0) break;
 
-            const start: usize = 0;
+            var consumed: usize = 0;
             for (buf[0..bytes_read], 0..) |b, idx| {
                 if (b == delim) {
                     lines_done += 1;
                     if (lines_done == to_output) {
-                        try stdout.writeAll(buf[start .. idx + 1]);
+                        try stdout.writeAll(buf[consumed .. idx + 1]);
+                        consumed = idx + 1;
+                        const unconsumed = bytes_read - consumed;
+                        if (unconsumed > 0) {
+                            _ = doLseek(file.handle, -@as(i64, @intCast(unconsumed)), c.SEEK_CUR);
+                        }
                         return;
                     }
                 }
             }
-            try stdout.writeAll(buf[start..bytes_read]);
+            try stdout.writeAll(buf[consumed..bytes_read]);
         }
     } else {
-        // Stream / pipe: hold lines in circular list
-        var line_list = try std.ArrayList(std.ArrayList(u8)).initCapacity(allocator, elide_count + 1);
+        // Stream / pipe: hold lines in circular list (dynamically grown, never upfront)
+        var line_list: std.ArrayList(std.ArrayList(u8)) = .empty;
         defer {
             for (line_list.items) |*item| item.deinit(allocator);
             line_list.deinit(allocator);
@@ -535,13 +633,10 @@ fn processLinesElide(file: std.Io.File, is_regular: bool, is_stdin: bool, elide_
         var current_line: std.ArrayList(u8) = .empty;
         defer current_line.deinit(allocator);
 
-        var r_buf: [16384]u8 = undefined;
-        var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-        const reader = &r.interface;
         var buf: [16384]u8 = undefined;
 
         while (true) {
-            const bytes_read = try reader.readSliceShort(&buf);
+            const bytes_read = try doRead(file.handle, &buf);
             if (bytes_read == 0) break;
 
             for (buf[0..bytes_read]) |b| {

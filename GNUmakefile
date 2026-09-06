@@ -38,6 +38,16 @@ test-verbose:
 test-%:
 	$(ZIG) test --dep framework -Mroot=tests/$*_test.zig -Mframework=tests/framework.zig
 
+# Run upstream GNU coreutils tests
+.PHONY: test-upstream
+test-upstream: build
+	./scripts/test-upstream.bash all
+
+.PHONY: test-upstream-%
+test-upstream-%:
+	$(ZIG) build $*
+	./scripts/test-upstream.bash $*
+
 # Format all source files
 .PHONY: fmt
 fmt:

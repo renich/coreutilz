@@ -32,10 +32,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
 
         if (std.mem.startsWith(u8, arg, "--")) {
             if (std.mem.eql(u8, arg, "--help")) {
-                try printHelp(stdout);
+                printHelp(stdout) catch return 2;
+                stdout.flush() catch return 2;
                 return 0;
             } else if (std.mem.eql(u8, arg, "--version")) {
-                try printVersion(stdout);
+                printVersion(stdout) catch return 2;
+                stdout.flush() catch return 2;
                 return 0;
             } else if (std.mem.eql(u8, arg, "--null")) {
                 line_terminator = 0;
@@ -88,9 +90,11 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                 exit_status = 1;
             }
         }
+        stdout.flush() catch return 2;
         return exit_status;
     }
 
+    stdout.flush() catch return 2;
     return 0;
 }
 

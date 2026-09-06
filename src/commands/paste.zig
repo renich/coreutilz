@@ -1,5 +1,9 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
+const c = @cImport({
+    @cInclude("locale.h");
+    @cInclude("wchar.h");
+});
 
 pub const name: []const u8 = "paste";
 pub const version: []const u8 = "0.1.0";
@@ -53,13 +57,16 @@ fn printVersion(writer: anytype) !void {
     try errors.printVersion(writer, name, version);
 }
 
-fn utf8CharLen(slice: []const u8) usize {
+fn nextCharLen(slice: []const u8) usize {
     if (slice.len == 0) return 0;
-    const len = std.unicode.utf8ByteSequenceLength(slice[0]) catch 1;
-    if (len <= slice.len and std.unicode.utf8ValidateSlice(slice[0..len])) {
-        return len;
+    var state: c.mbstate_t = std.mem.zeroes(c.mbstate_t);
+    var wc: c.wchar_t = 0;
+    const res = c.mbrtowc(&wc, slice.ptr, slice.len, &state);
+    if (res == 0) return 1;
+    if (res == std.math.maxInt(usize) or res == std.math.maxInt(usize) - 1) {
+        return 1;
     }
-    return 1;
+    return res;
 }
 
 fn parseDelimiters(
@@ -78,8 +85,8 @@ fn parseDelimiters(
                 try stderr.print("paste: delimiter list ends with an unescaped backslash: {s}\n", .{delim_arg});
                 return error.UnescapedBackslash;
             }
-            const c = delim_arg[i];
-            switch (c) {
+            const esc_ch = delim_arg[i];
+            switch (esc_ch) {
                 '0' => {
                     try list.append(allocator, "");
                     i += 1;
@@ -113,13 +120,13 @@ fn parseDelimiters(
                     i += 1;
                 },
                 else => {
-                    const len = utf8CharLen(delim_arg[i..]);
+                    const len = nextCharLen(delim_arg[i..]);
                     try list.append(allocator, delim_arg[i .. i + len]);
                     i += len;
                 },
             }
         } else {
-            const len = utf8CharLen(delim_arg[i..]);
+            const len = nextCharLen(delim_arg[i..]);
             try list.append(allocator, delim_arg[i .. i + len]);
             i += len;
         }
@@ -372,6 +379,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     defer stdout.flush() catch {};
     defer stderr.flush() catch {};
 
+    _ = c.setlocale(c.LC_ALL, "");
+
     var serial_merge = false;
     var delim_arg: []const u8 = "\t";
     var line_delim: u8 = '\n';
@@ -397,10 +406,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             const val_in_opt = if (eq_pos) |pos| arg[pos + 1 ..] else null;
 
             if (std.mem.startsWith(u8, "--help", opt_name)) {
-                try printHelp(stdout);
+                printHelp(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.startsWith(u8, "--version", opt_name)) {
-                try printVersion(stdout);
+                printVersion(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.startsWith(u8, "--serial", opt_name)) {
                 if (val_in_opt != null) {
@@ -431,8 +442,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
             var j: usize = 1;
             while (j < arg.len) : (j += 1) {
-                const c = arg[j];
-                switch (c) {
+                const opt_ch = arg[j];
+                switch (opt_ch) {
                     's' => {
                         serial_merge = true;
                     },
@@ -452,7 +463,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                         break;
                     },
                     else => {
-                        try stderr.print("paste: invalid option -- '{c}'\nTry 'paste --help' for more information.\n", .{c});
+                        try stderr.print("paste: invalid option -- '{c}'\nTry 'paste --help' for more information.\n", .{opt_ch});
                         return 1;
                     },
                 }

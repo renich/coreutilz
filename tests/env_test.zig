@@ -98,11 +98,11 @@ test "env -u unsets variable" {
     const tmp = try ctx.tmpPath(".");
     defer allocator.free(tmp);
 
-    var result = try ctx.runCommandInDir(&[_][]const u8{ binary_path, "-i", "RM_ME=present", "-u", "RM_ME" }, null, tmp, &env);
+    var result = try ctx.runCommandInDir(&[_][]const u8{ binary_path, "-u", "RM_ME" }, null, tmp, &env);
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("", result.stdout);
+    try testing.expect(std.mem.indexOf(u8, result.stdout, "RM_ME") == null);
 }
 
 test "env unknown option exits 125" {

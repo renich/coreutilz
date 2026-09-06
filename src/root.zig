@@ -47,12 +47,8 @@ pub const seq_cmd = @import("commands/seq.zig");
 pub const utils = struct {
     pub const args = @import("utils/args.zig");
     pub const errors = @import("utils/errors.zig");
-    pub const fs = @import("utils/fs.zig");
-    pub const io = @import("utils/io.zig");
+    pub const mode = @import("utils/mode.zig");
+    pub const backup = @import("utils/backup.zig");
+    pub const runner = @import("utils/runner.zig");
+    pub const signals = @import("utils/signals.zig");
 };
-
-/// Simple buffered print for testing
-pub fn bufferedPrint() !void {
-    const stdout = std.io.getStdOut().writer();
-    try stdout.writeAll("Hello from coreutilz!\n");
-}

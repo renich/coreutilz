@@ -1,14 +1,17 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
+const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "cat";
 pub const version: []const u8 = "0.1.0";
 
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
+    _ = c.signal(c.SIGPIPE, c.SIG_DFL);
+
     var stdout_buffer: [16384]u8 = undefined;
     var stderr_buffer: [4096]u8 = undefined;
-    var stdout_writer: std.Io.File.Writer = .init(.stdout(), std.Options.debug_io, &stdout_buffer);
-    var stderr_writer: std.Io.File.Writer = .init(.stderr(), std.Options.debug_io, &stderr_buffer);
+    var stdout_writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &stdout_buffer);
+    var stderr_writer: std.Io.File.Writer = .initStreaming(.stderr(), std.Options.debug_io, &stderr_buffer);
     const stdout = &stdout_writer.interface;
     const stderr = &stderr_writer.interface;
     defer stdout.flush() catch {};
@@ -38,10 +41,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
 
         if (std.mem.startsWith(u8, arg, "--")) {
             if (std.mem.eql(u8, arg, "--help")) {
-                try printHelp(stdout);
+                printHelp(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.eql(u8, arg, "--version")) {
-                try printVersion(stdout);
+                printVersion(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.eql(u8, arg, "--show-all")) {
                 show_nonprinting = true;
@@ -67,8 +72,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             }
         } else {
             // Short options
-            for (arg[1..]) |c| {
-                switch (c) {
+            for (arg[1..]) |ch| {
+                switch (ch) {
                     'A' => {
                         show_nonprinting = true;
                         show_ends = true;
@@ -90,9 +95,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                     'u' => {}, // Ignored
                     'v' => show_nonprinting = true,
                     else => {
-                        const msg = try std.fmt.allocPrint(allocator, "invalid option -- '{c}'", .{c});
-                        defer allocator.free(msg);
-                        try errors.printError(stderr, name, msg);
+                        try errors.printInvalidOption(stderr, name, ch);
                         return 1;
                     },
                 }
@@ -112,15 +115,22 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var pending_cr = false;
     var exit_status: u8 = 0;
 
-    const stdout_file = std.Io.File.stdout();
-    const stdout_stat = stdout_file.stat(std.Options.debug_io) catch null;
-
     if (file_start >= args.len) {
+        if (isInputOutputFile(0)) {
+            try stderr.print("{s}: -: input file is output file\n", .{name});
+            return 1;
+        }
         try processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
     } else {
         for (args[file_start..]) |filename| {
             if (std.mem.eql(u8, filename, "-")) {
+                if (isInputOutputFile(0)) {
+                    try stderr.print("{s}: -: input file is output file\n", .{name});
+                    exit_status = 1;
+                    continue;
+                }
                 try processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
+                try stdout.flush();
             } else {
                 const file = std.Io.Dir.cwd().openFile(std.Options.debug_io, filename, .{ .mode = .read_only }) catch |err| {
                     try errors.printErrorWithArg(stderr, name, filename, err);
@@ -129,21 +139,14 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                 };
                 defer file.close(std.Options.debug_io);
 
-                if (stdout_stat) |out_st| {
-                    if (out_st.kind == .file and out_st.inode != 0) {
-                        if (file.stat(std.Options.debug_io)) |in_st| {
-                            if (in_st.kind == .file and in_st.inode == out_st.inode) {
-                                const msg = try std.fmt.allocPrint(allocator, "{s}: input file is output file", .{filename});
-                                defer allocator.free(msg);
-                                try errors.printError(stderr, name, msg);
-                                exit_status = 1;
-                                continue;
-                            }
-                        } else |_| {}
-                    }
+                if (isInputOutputFile(file.handle)) {
+                    try stderr.print("{s}: {s}: input file is output file\n", .{ name, filename });
+                    exit_status = 1;
+                    continue;
                 }
 
                 try processFile(file, stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
+                try stdout.flush();
             }
         }
     }
@@ -171,94 +174,111 @@ fn processFile(
     at_line_start: *bool,
     pending_cr: *bool,
 ) !void {
-    var r_buf: [16384]u8 = undefined;
-    var r = file.readerStreaming(std.Options.debug_io, &r_buf);
-    const reader = &r.interface;
+    var inbuf: [16384]u8 = undefined;
 
     if (!any_options) {
-        var buffer: [16384]u8 = undefined;
         while (true) {
-            const bytes_read = try reader.readSliceShort(&buffer);
-            if (bytes_read == 0) break;
-            try writer.writeAll(buffer[0..bytes_read]);
+            var n_to_read: c_int = 0;
+            const input_pending = if (c.ioctl(file.handle, c.FIONREAD, &n_to_read) == 0) (n_to_read > 0) else true;
+            if (!input_pending) {
+                try writer.flush();
+            }
+
+            const n_read = c.read(file.handle, &inbuf, inbuf.len);
+            if (n_read < 0) {
+                if (c.__errno_location().* == c.EINTR) continue;
+                return error.ReadError;
+            }
+            if (n_read == 0) break;
+            try writer.writeAll(inbuf[0..@intCast(n_read)]);
         }
         return;
     }
 
     while (true) {
-        const byte = reader.takeByte() catch |err| switch (err) {
-            error.EndOfStream => break,
-            else => return err,
-        };
-
-        if (show_ends and byte == '\r') {
-            if (pending_cr.*) {
-                try writer.writeByte('\r');
-            }
-            pending_cr.* = true;
-            continue;
+        var n_to_read: c_int = 0;
+        const input_pending = if (c.ioctl(file.handle, c.FIONREAD, &n_to_read) == 0) (n_to_read > 0) else true;
+        if (!input_pending) {
+            try writer.flush();
         }
 
-        if (pending_cr.*) {
-            if (byte == '\n') {
-                try writer.writeAll("^M");
-            } else {
-                try writer.writeByte('\r');
-            }
-            pending_cr.* = false;
+        const n_read = c.read(file.handle, &inbuf, inbuf.len);
+        if (n_read < 0) {
+            if (c.__errno_location().* == c.EINTR) continue;
+            return error.ReadError;
         }
+        if (n_read == 0) break;
 
-        if (at_line_start.*) {
-            if (byte == '\n') {
-                consecutive_newlines.* += 1;
-                if (squeeze_blank and consecutive_newlines.* > 1) {
-                    continue;
+        for (inbuf[0..@intCast(n_read)]) |byte| {
+            if (show_ends and byte == '\r') {
+                if (pending_cr.*) {
+                    try writer.writeByte('\r');
                 }
-            } else {
-                consecutive_newlines.* = 0;
+                pending_cr.* = true;
+                continue;
             }
 
-            if (number_nonblank) {
-                if (byte != '\n') {
+            if (pending_cr.*) {
+                if (byte == '\n') {
+                    try writer.writeAll("^M");
+                } else {
+                    try writer.writeByte('\r');
+                }
+                pending_cr.* = false;
+            }
+
+            if (at_line_start.*) {
+                if (byte == '\n') {
+                    consecutive_newlines.* += 1;
+                    if (squeeze_blank and consecutive_newlines.* > 1) {
+                        continue;
+                    }
+                } else {
+                    consecutive_newlines.* = 0;
+                }
+
+                if (number_nonblank) {
+                    if (byte != '\n') {
+                        try writer.print("{d:>6}\t", .{line_num.*});
+                        line_num.* += 1;
+                    }
+                } else if (number) {
                     try writer.print("{d:>6}\t", .{line_num.*});
                     line_num.* += 1;
                 }
-            } else if (number) {
-                try writer.print("{d:>6}\t", .{line_num.*});
-                line_num.* += 1;
+                at_line_start.* = false;
             }
-            at_line_start.* = false;
-        }
 
-        if (byte == '\n') {
-            if (show_ends) try writer.writeByte('$');
-            try writer.writeByte('\n');
-            at_line_start.* = true;
-        } else if (byte == '\t' and !show_tabs) {
-            try writer.writeByte('\t');
-        } else if (byte == '\t' and show_tabs) {
-            try writer.writeAll("^I");
-        } else {
-            if (show_nonprinting) {
-                if (byte < 32) {
-                    try writer.print("^{c}", .{@as(u8, byte + 64)});
-                } else if (byte == 127) {
-                    try writer.writeAll("^?");
-                } else if (byte >= 128) {
-                    try writer.writeAll("M-");
-                    const next = byte - 128;
-                    if (next < 32) {
-                        try writer.print("^{c}", .{@as(u8, next + 64)});
-                    } else if (next == 127) {
+            if (byte == '\n') {
+                if (show_ends) try writer.writeByte('$');
+                try writer.writeByte('\n');
+                at_line_start.* = true;
+            } else if (byte == '\t' and !show_tabs) {
+                try writer.writeByte('\t');
+            } else if (byte == '\t' and show_tabs) {
+                try writer.writeAll("^I");
+            } else {
+                if (show_nonprinting) {
+                    if (byte < 32) {
+                        try writer.print("^{c}", .{@as(u8, byte + 64)});
+                    } else if (byte == 127) {
                         try writer.writeAll("^?");
+                    } else if (byte >= 128) {
+                        try writer.writeAll("M-");
+                        const next = byte - 128;
+                        if (next < 32) {
+                            try writer.print("^{c}", .{@as(u8, next + 64)});
+                        } else if (next == 127) {
+                            try writer.writeAll("^?");
+                        } else {
+                            try writer.writeByte(next);
+                        }
                     } else {
-                        try writer.writeByte(next);
+                        try writer.writeByte(byte);
                     }
                 } else {
                     try writer.writeByte(byte);
                 }
-            } else {
-                try writer.writeByte(byte);
             }
         }
     }
@@ -295,4 +315,29 @@ pub fn printHelp(writer: anytype) !void {
 
 pub fn printVersion(writer: anytype) !void {
     try errors.printVersion(writer, name, version);
+}
+
+fn isInputOutputFile(in_fd: i32) bool {
+    var istat: c.struct_stat = undefined;
+    var ostat: c.struct_stat = undefined;
+    if (c.fstat(in_fd, &istat) != 0) return false;
+    if (c.fstat(1, &ostat) != 0) return false;
+
+    // Must be same inode and device
+    if (istat.st_ino != ostat.st_ino or istat.st_dev != ostat.st_dev) {
+        return false;
+    }
+
+    // Check file types (not pipes/sockets)
+    if (c.S_ISFIFO(istat.st_mode) or c.S_ISSOCK(istat.st_mode)) return false;
+
+    const in_pos = c.lseek(in_fd, 0, c.SEEK_CUR);
+    if (in_pos < 0) return false;
+
+    const out_flags = c.fcntl(1, c.F_GETFL);
+    const whence: c_int = if (out_flags >= 0 and (out_flags & c.O_APPEND) != 0) c.SEEK_END else c.SEEK_CUR;
+    const out_pos = c.lseek(1, 0, whence);
+    if (out_pos < 0) return false;
+
+    return in_pos < out_pos;
 }

@@ -178,11 +178,49 @@ test "dd with seek option" {
         of_output_path_arg,
         "bs=1",
         "seek=2",
+        "conv=notrunc",
     }, null);
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
     try testing.expect(try ctx.compareContent("XXabcdXX", "output.txt"));
+}
+
+test "dd with seek option truncates without notrunc" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "dd");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("input.txt", "abcd");
+    try ctx.writeFile("output.txt", "XXXXXXXX");
+
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const input_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "input.txt" });
+    defer allocator.free(input_path);
+    const output_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "output.txt" });
+    defer allocator.free(output_path);
+
+    const if_input_path_arg = try std.fmt.allocPrint(allocator, "if={s}", .{input_path});
+    defer allocator.free(if_input_path_arg);
+    const of_output_path_arg = try std.fmt.allocPrint(allocator, "of={s}", .{output_path});
+    defer allocator.free(of_output_path_arg);
+
+    var result = try ctx.runCommand(&[_][]const u8{
+        binary_path,
+        if_input_path_arg,
+        of_output_path_arg,
+        "bs=1",
+        "seek=2",
+    }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expect(try ctx.compareContent("XXabcd", "output.txt"));
 }
 
 test "dd conv=ucase option" {

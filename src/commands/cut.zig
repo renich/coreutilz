@@ -545,10 +545,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                 try stderr.print("cut: option '--o' is ambiguous; possibilities: '--only-delimited' '--output-delimiter'\nTry 'cut --help' for more information.\n", .{});
                 return 1;
             } else if (std.mem.startsWith(u8, "--help", opt_name)) {
-                try printHelp(stdout);
+                printHelp(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.startsWith(u8, "--version", opt_name)) {
-                try printVersion(stdout);
+                printVersion(stdout) catch return 1;
+                stdout.flush() catch return 1;
                 return 0;
             } else if (std.mem.startsWith(u8, "--bytes", opt_name)) {
                 if (spec_list_string != null) {

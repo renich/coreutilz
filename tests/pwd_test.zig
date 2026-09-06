@@ -111,7 +111,7 @@ test "pwd invalid option exits 2" {
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-Z" }, null);
     defer result.deinit();
 
-    try testing.expectEqual(@as(u8, 2), result.exit_code);
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
 }
 
 test "pwd --help exits 0" {

@@ -1,42 +1,72 @@
 const std = @import("std");
 const coreutilz = @import("coreutilz");
 
-pub fn main(init: std.process.Init) !void {
-    const args = try coreutilz.utils.args.getArgs(init, init.arena.allocator());
+pub fn main(init: std.process.Init.Minimal) u8 {
+    coreutilz.utils.signals.restoreDefaultSignals();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = coreutilz.utils.args.getArgs(init.args, allocator) catch |err| {
+        handleDispatchError("coreutilz", err);
+        return 1;
+    };
 
     if (args.len < 1) {
-        std.debug.print("Error: no command specified\n", .{});
-        std.process.exit(1);
+        std.debug.print("coreutilz: no command specified\n", .{});
+        return 1;
     }
 
     const arg0 = std.fs.path.basename(args[0]);
 
-    const exit_code = blk: {
-        if (std.mem.eql(u8, arg0, "coreutilz")) {
-            if (args.len > 1) {
-                const subcmd = std.fs.path.basename(args[1]);
-                break :blk dispatch(subcmd, args[1..]) catch |err| {
-                    std.debug.print("Error: {s}\n", .{@errorName(err)});
-                    std.process.exit(1);
-                };
-            } else {
-                std.debug.print("Usage: coreutilz <command> [arguments...]\n", .{});
-                std.process.exit(1);
+    if (std.mem.eql(u8, arg0, "coreutilz")) {
+        if (args.len > 1) {
+            const subcmd = std.fs.path.basename(args[1]);
+            if (std.mem.eql(u8, subcmd, "--help") or std.mem.eql(u8, subcmd, "-h")) {
+                printUsage();
+                return 0;
+            } else if (std.mem.eql(u8, subcmd, "--version") or std.mem.eql(u8, subcmd, "-v")) {
+                printVersion();
+                return 0;
             }
-        } else {
-            break :blk dispatch(arg0, args) catch |err| {
-                std.debug.print("Error: {s}\n", .{@errorName(err)});
-                std.process.exit(1);
+            return dispatch(subcmd, args[1..], allocator) catch |err| {
+                handleDispatchError(subcmd, err);
+                return 1;
             };
+        } else {
+            printUsage();
+            return 0;
         }
-    };
-
-    std.process.exit(exit_code);
+    } else {
+        return dispatch(arg0, args, allocator) catch |err| {
+            handleDispatchError(arg0, err);
+            return 1;
+        };
+    }
 }
 
-fn dispatch(command: []const u8, args: [][]const u8) !u8 {
-    const allocator = std.heap.page_allocator;
+fn handleDispatchError(command: []const u8, err: anyerror) void {
+    var stderr_buf: [256]u8 = undefined;
+    var stderr_writer = std.Io.File.Writer.initStreaming(.stderr(), std.Options.debug_io, &stderr_buf);
+    const stderr = &stderr_writer.interface;
+    switch (err) {
+        error.OutOfMemory => {
+            stderr.print("{s}: memory exhausted\n", .{command}) catch {};
+        },
+        error.BrokenPipe => {
+            stderr.print("{s}: write error: Broken pipe\n", .{command}) catch {};
+        },
+        error.WriteFailed, error.DiskFull, error.NoSpaceLeft => {
+            stderr.print("{s}: write error: {s}\n", .{ command, coreutilz.utils.errors.errorDescription(err) }) catch {};
+        },
+        else => {
+            stderr.print("{s}: {s}\n", .{ command, coreutilz.utils.errors.errorDescription(err) }) catch {};
+        },
+    }
+    stderr.flush() catch {};
+}
 
+fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     if (std.mem.eql(u8, command, "true")) {
         return try coreutilz.true_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "false")) {
@@ -117,4 +147,30 @@ fn dispatch(command: []const u8, args: [][]const u8) !u8 {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
     }
+}
+
+fn printUsage() void {
+    var buf: [4096]u8 = undefined;
+    var writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &buf);
+    _ = writer.interface.write(
+        \\Coreutilz 0.1.0 - 100% GNU-compatible Coreutils in Zig
+        \\
+        \\Usage: coreutilz <command> [arguments...]
+        \\   or: <command> [arguments...] (via symlink)
+        \\
+        \\Available commands:
+        \\  basename, cat, chmod, cp, cut, dd, dirname, echo, env, false,
+        \\  head, hostid, hostname, link, ln, logname, mkdir, mv, nproc,
+        \\  paste, printenv, pwd, readlink, rm, rmdir, seq, sleep, stat,
+        \\  sync, tee, touch, true, truncate, tty, unlink, wc, whoami, yes
+        \\
+    ) catch {};
+    writer.interface.flush() catch {};
+}
+
+fn printVersion() void {
+    var buf: [64]u8 = undefined;
+    var writer: std.Io.File.Writer = .initStreaming(.stdout(), std.Options.debug_io, &buf);
+    _ = writer.interface.write("coreutilz 0.1.0\n") catch {};
+    writer.interface.flush() catch {};
 }

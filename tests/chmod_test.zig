@@ -241,7 +241,8 @@ test "chmod -f suppresses errors for non-existent file" {
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-f", "644", file_path }, null);
     defer result.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expectEqualStrings("", result.stderr);
 }
 
 test "chmod --help option" {
