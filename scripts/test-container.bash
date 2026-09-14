@@ -315,6 +315,17 @@ if [[ "\${TEST_MODE}" == "all" || "\${TEST_MODE}" == "functional" ]]; then
     "\${ZIG_BIN_DIR}/mkdir" -p "\${test_dir}/subdir"
     "\${ZIG_BIN_DIR}/rmdir" "\${test_dir}/subdir"
     "\${ZIG_BIN_DIR}/rmdir" "\${test_dir}"
+
+    # text sorting & grouping: sort, uniq, comm, tac, shuf
+    compare_output "sort:basic" "printf 'c\na\nb\n' | \${ZIG_BIN_DIR}/sort" "printf 'c\na\nb\n' | \${GNU_BIN_DIR}/sort" || true
+    compare_output "sort:numeric" "printf '10\n2\n1\n' | \${ZIG_BIN_DIR}/sort -n" "printf '10\n2\n1\n' | \${GNU_BIN_DIR}/sort -n" || true
+    compare_output "uniq:count" "printf 'a\na\nb\n' | \${ZIG_BIN_DIR}/uniq -c" "printf 'a\na\nb\n' | \${GNU_BIN_DIR}/uniq -c" || true
+    printf 'a\nb\n' > /tmp/comm_test1_\$\$
+    printf 'b\nc\n' > /tmp/comm_test2_\$\$
+    compare_output "comm:basic" "\${ZIG_BIN_DIR}/comm /tmp/comm_test1_\$\$ /tmp/comm_test2_\$\$" "\${GNU_BIN_DIR}/comm /tmp/comm_test1_\$\$ /tmp/comm_test2_\$\$" || true
+    rm -f /tmp/comm_test1_\$\$ /tmp/comm_test2_\$\$
+    compare_output "tac:reverse" "printf 'line1\nline2\nline3\n' | \${ZIG_BIN_DIR}/tac" "printf 'line1\nline2\nline3\n' | \${GNU_BIN_DIR}/tac" || true
+    compare_output "shuf:count" "\${ZIG_BIN_DIR}/seq 10 | \${ZIG_BIN_DIR}/shuf -n 3 | \${ZIG_BIN_DIR}/wc -l" "printf '3\n'" || true
 fi
 
 printf '\n==================================================\n'

@@ -1,7 +1,7 @@
 {
-  "active_track": "phase-5-batch-a-complete",
+  "active_track": "strike-4-ship",
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
-  "status": "shipped_ls_dir_vdir",
+  "status": "completed",
   "toolchain": "zig-0.16.0"
 }

@@ -11,6 +11,7 @@ fn orderChar(c_opt: ?u8) u16 {
 fn verrevcmp(a: []const u8, b: []const u8) std.math.Order {
     var i: usize = 0;
     var j: usize = 0;
+    var first_diff_zeros: std.math.Order = .eq;
     while (i < a.len or j < b.len) {
         var first_diff: std.math.Order = .eq;
         while ((i < a.len and !std.ascii.isDigit(a[i])) or (j < b.len and !std.ascii.isDigit(b[j]))) {
@@ -23,8 +24,12 @@ fn verrevcmp(a: []const u8, b: []const u8) std.math.Order {
             if (cb != null) j += 1;
         }
 
+        const i_zero_start = i;
+        const j_zero_start = j;
         while (i < a.len and a[i] == '0') : (i += 1) {}
         while (j < b.len and b[j] == '0') : (j += 1) {}
+        const zeros_a = i - i_zero_start;
+        const zeros_b = j - j_zero_start;
         const i_num_start = i;
         const j_num_start = j;
         while (i < a.len and std.ascii.isDigit(a[i])) : (i += 1) {}
@@ -39,7 +44,11 @@ fn verrevcmp(a: []const u8, b: []const u8) std.math.Order {
             }
         }
         if (first_diff != .eq) return first_diff;
+        if (first_diff_zeros == .eq and zeros_a != zeros_b) {
+            first_diff_zeros = std.math.order(zeros_a, zeros_b);
+        }
     }
+    if (first_diff_zeros != .eq) return first_diff_zeros;
     return std.mem.order(u8, a, b);
 }
 

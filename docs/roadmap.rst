@@ -58,6 +58,19 @@ Track 5A: Directory Listing (``ls``, ``dir``, ``vdir``)
   - Dedicated entrypoint variants: ``ls`` (adaptive TTY layout), ``dir`` (default columns), ``vdir`` (default long listing).
 * **Pass Baseline**: **100% PASS** (46 passed, 6 skipped, 0 failed on GNU Coreutils upstream test suite).
 
+Track 5B: Text Sorting & Grouping (``sort``, ``uniq``, ``comm``, ``shuf``, ``tac``)
+-----------------------------------------------------------------------------------
+
+* **Scope**: In-memory and external sorting, adjacent deduplication, dual-stream reconciliation, line permutation, stream reversal.
+* **Requirements**:
+  - Implemented under ``SPEC-FUNC-TEXT-SORT`` and ``SPEC-TECH-TEXT-SORT``.
+  - ``sort``: Standard, numeric (``-n``), general numeric (``-g``), human (``-h``), month (``-M``), version (``-V``), random (``-R``), key definitions (``-k``, ``-t``), unique (``-u``), check (``-c``, ``-C``), merge (``-m``).
+  - ``uniq``: Adjacent group filtering, count (``-c``), repeated only (``-d``, ``-D``), unique only (``-u``), field/char skipping (``-f``, ``-s``, ``-w``).
+  - ``comm``: Three-column stream comparison, column suppression (``-1``, ``-2``, ``-3``), custom delimiter, order verification.
+  - ``shuf``: Uniform Fisher-Yates permutation, range generation (``-i``), argument permutation (``-e``), head count (``-n``), repeat mode (``-r``).
+  - ``tac``: Backward file scanning for seekable regular files, buffer reversal for pipes/streams, custom separator (``-s``), before placement (``-b``).
+* **Target Pass Baseline**: 100% pass on internal test suites and upstream GNU Coreutils tests.
+
 Track 4A: ``dd`` Data Duplicator
 ---------------------------------
 

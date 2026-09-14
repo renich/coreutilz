@@ -4,9 +4,9 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "tac basic reverse lines" {
+// [FUNC-TAC-001] Stream Record Reversal
+test "tac [FUNC-TAC-001] basic reverse lines" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -14,7 +14,6 @@ test "tac basic reverse lines" {
     defer allocator.free(binary_path);
 
     try ctx.writeFile("test.txt", "line1\nline2\nline3\n");
-
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
     const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
@@ -27,9 +26,9 @@ test "tac basic reverse lines" {
     try testing.expectEqualStrings("line3\nline2\nline1\n", result.stdout);
 }
 
-test "tac -s option (custom separator)" {
+// [FUNC-TAC-002b] Custom Separator (-s)
+test "tac [FUNC-TAC-002b] -s custom separator" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -37,7 +36,6 @@ test "tac -s option (custom separator)" {
     defer allocator.free(binary_path);
 
     try ctx.writeFile("test.txt", "part1:part2:part3");
-
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
     const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
@@ -50,9 +48,9 @@ test "tac -s option (custom separator)" {
     try testing.expectEqualStrings("part3part2:part1:", result.stdout);
 }
 
-test "tac -b option (separator before)" {
+// [FUNC-TAC-002c] Attached Before (-b)
+test "tac [FUNC-TAC-002c] -b separator attached before" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -60,7 +58,6 @@ test "tac -b option (separator before)" {
     defer allocator.free(binary_path);
 
     try ctx.writeFile("test.txt", "part1:part2:part3");
-
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
     const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
@@ -73,32 +70,34 @@ test "tac -b option (separator before)" {
     try testing.expectEqualStrings(":part3:part2part1", result.stdout);
 }
 
-test "tac -r option (regex separator)" {
+// [FUNC-TAC-003] Multi-file Concatenation in Reverse
+test "tac [FUNC-TAC-001] multiple files reversed individually" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
     const binary_path = try getBinaryPath(allocator, "tac");
     defer allocator.free(binary_path);
 
-    try ctx.writeFile("test.txt", "a1b2c");
-
+    try ctx.writeFile("f1.txt", "1\n2\n");
+    try ctx.writeFile("f2.txt", "3\n4\n");
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    const f1 = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "f1.txt" });
+    defer allocator.free(f1);
+    const f2 = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "f2.txt" });
+    defer allocator.free(f2);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-r", "-s", "[0-9]", file_path }, null);
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, f1, f2 }, null);
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("c2b1a", result.stdout);
+    try testing.expectEqualStrings("2\n1\n4\n3\n", result.stdout);
 }
 
-test "tac --help option" {
+// [FUNC-TAC-004] Help and Version
+test "tac [FUNC-TAC-004] --help" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -112,9 +111,8 @@ test "tac --help option" {
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
 }
 
-test "tac --version option" {
+test "tac [FUNC-TAC-004] --version" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 

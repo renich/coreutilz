@@ -149,6 +149,16 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.dir_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "vdir")) {
         return try coreutilz.vdir_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sort")) {
+        return try coreutilz.sort_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "uniq")) {
+        return try coreutilz.uniq_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "comm")) {
+        return try coreutilz.comm_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "shuf")) {
+        return try coreutilz.shuf_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "tac")) {
+        return try coreutilz.tac_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -165,10 +175,10 @@ fn printUsage() void {
         \\   or: <command> [arguments...] (via symlink)
         \\
         \\Available commands:
-        \\  basename, cat, chmod, cp, cut, dd, dir, dirname, echo, env, false,
+        \\  basename, cat, chmod, comm, cp, cut, dd, dir, dirname, echo, env, false,
         \\  head, hostid, hostname, link, ln, logname, ls, mkdir, mv, nproc,
-        \\  paste, printenv, pwd, readlink, rm, rmdir, seq, sleep, stat,
-        \\  sync, tee, touch, true, truncate, tty, unlink, vdir, wc, whoami, yes
+        \\  paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort, stat,
+        \\  sync, tac, tee, touch, true, truncate, tty, uniq, unlink, vdir, wc, whoami, yes
         \\
     ) catch {};
     writer.interface.flush() catch {};

@@ -4,7 +4,8 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "uniq basic" {
+// [FUNC-UNIQ-001] Adjacent Duplicate Line Filtering
+test "uniq [FUNC-UNIQ-001] basic adjacent deduplication" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -22,11 +23,11 @@ test "uniq basic" {
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // uniq only removes adjacent duplicates
     try testing.expectEqualStrings("apple\nbanana\napple\n", result.stdout);
 }
 
-test "uniq -c (count)" {
+// [FUNC-UNIQ-002a] Prefix Count (-c)
+test "uniq [FUNC-UNIQ-002a] -c prefix count occurrences" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -44,12 +45,12 @@ test "uniq -c (count)" {
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // GNU uniq -c output usually has some padding
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "2 apple\n"));
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "1 banana\n"));
 }
 
-test "uniq -d (duplicates only)" {
+// [FUNC-UNIQ-002b] Repeated Only (-d)
+test "uniq [FUNC-UNIQ-002b] -d print duplicates only" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -70,7 +71,30 @@ test "uniq -d (duplicates only)" {
     try testing.expectEqualStrings("apple\n", result.stdout);
 }
 
-test "uniq -u (unique only)" {
+// [FUNC-UNIQ-002c] All Repeated (-D)
+test "uniq [FUNC-UNIQ-002c] -D print all duplicate lines" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "uniq");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("test.txt", "apple\napple\nbanana\ncherry\ncherry\n");
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
+    defer allocator.free(file_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-D", file_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqualStrings("apple\napple\ncherry\ncherry\n", result.stdout);
+}
+
+// [FUNC-UNIQ-002d] Unique Only (-u)
+test "uniq [FUNC-UNIQ-002d] -u print unique lines only" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -91,7 +115,8 @@ test "uniq -u (unique only)" {
     try testing.expectEqualStrings("banana\n", result.stdout);
 }
 
-test "uniq -i (ignore case)" {
+// [FUNC-UNIQ-003d] Ignore Case (-i)
+test "uniq [FUNC-UNIQ-003d] -i ignore case" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -112,7 +137,8 @@ test "uniq -i (ignore case)" {
     try testing.expectEqualStrings("apple\nbanana\n", result.stdout);
 }
 
-test "uniq -f (skip fields)" {
+// [FUNC-UNIQ-003a] Skip Fields (-f)
+test "uniq [FUNC-UNIQ-003a] -f skip fields" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -126,7 +152,6 @@ test "uniq -f (skip fields)" {
     const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
     defer allocator.free(file_path);
 
-    // Skip first field, so "apple" and "apple" are duplicates
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-f", "1", file_path }, null);
     defer result.deinit();
 
@@ -134,7 +159,8 @@ test "uniq -f (skip fields)" {
     try testing.expectEqualStrings("1 apple\n3 banana\n", result.stdout);
 }
 
-test "uniq -s (skip chars)" {
+// [FUNC-UNIQ-003b] Skip Characters (-s)
+test "uniq [FUNC-UNIQ-003b] -s skip chars" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -148,7 +174,6 @@ test "uniq -s (skip chars)" {
     const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
     defer allocator.free(file_path);
 
-    // Skip first character, so "apple" and "apple" are duplicates
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-s", "1", file_path }, null);
     defer result.deinit();
 
@@ -156,7 +181,33 @@ test "uniq -s (skip chars)" {
     try testing.expectEqualStrings("aapple\ncherry\n", result.stdout);
 }
 
-test "uniq --help" {
+// [FUNC-UNIQ-004] Output File Operand & Help
+test "uniq [FUNC-UNIQ-004] write to output file" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "uniq");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("in.txt", "a\na\nb\n");
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const in_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "in.txt" });
+    defer allocator.free(in_path);
+    const out_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "out.txt" });
+    defer allocator.free(out_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, in_path, out_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    const out_content = try ctx.readFile("out.txt");
+    defer allocator.free(out_content);
+    try testing.expectEqualStrings("a\nb\n", out_content);
+}
+
+test "uniq [FUNC-UNIQ-004] --help" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
@@ -171,7 +222,7 @@ test "uniq --help" {
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
 }
 
-test "uniq --version" {
+test "uniq [FUNC-UNIQ-004] --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();

@@ -7,3 +7,4 @@ Coreutilz Technical Blueprint Specification
    :caption: Technical Specifications
 
    specs/directory-listing
+   specs/text-sorting-grouping

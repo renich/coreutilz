@@ -38,15 +38,19 @@ pub fn runProfile(
     switch (action) {
         .help => {
             try printHelp(stdout, prog_name);
+            stdout.flush() catch return 2;
             return 0;
         },
         .version => {
             try errors.printVersion(stdout, prog_name, version);
+            stdout.flush() catch return 2;
             return 0;
         },
         .error_exit => |code| return code,
         .proceed => |data| {
-            return try traversal.executeListing(data.paths, &data.options, prog_name, allocator, stdout, stderr);
+            const rc = try traversal.executeListing(data.paths, &data.options, prog_name, allocator, stdout, stderr);
+            stdout.flush() catch return 2;
+            return rc;
         },
     }
 }

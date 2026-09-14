@@ -16,7 +16,7 @@ pub fn build(b: *std.Build) void {
         "mkdir", "rmdir",    "rm",     "link",    "yes",      "sleep",    "sync", "env",
         "cp",    "mv",       "chmod",  "ln",      "stat",     "dd",       "head", "wc",
         "tee",   "truncate", "touch",  "cut",     "paste",    "seq",      "ls",   "dir",
-        "vdir",
+        "vdir",  "sort",     "uniq",   "comm",    "shuf",     "tac",
     };
 
     const install_step = b.getInstallStep();

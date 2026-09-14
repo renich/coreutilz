@@ -7,3 +7,4 @@ Coreutilz Functional Specification Repository
    :caption: Functional Specifications
 
    specs/directory-listing
+   specs/text-sorting-grouping

@@ -3,6 +3,8 @@ const errors = @import("../utils/errors.zig");
 
 const c = @import("../compat/c.zig").c;
 
+extern "c" fn btowc(c_int) c.wint_t;
+
 pub const name: []const u8 = "wc";
 pub const version: []const u8 = "0.1.0";
 
@@ -39,7 +41,7 @@ const LocaleContext = struct {
 
         for (0..256) |byte_val| {
             const b: u8 = @intCast(byte_val);
-            const w = c.btowc(b);
+            const w = btowc(b);
             const is_sp = (c.isspace(b) != 0) or (!posixly and (w == 0x00A0 or w == 0x2007 or w == 0x202F or w == 0x2060));
             ctx.is_space_table[b] = is_sp;
             if (w != c.WEOF) {

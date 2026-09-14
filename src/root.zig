@@ -44,6 +44,11 @@ pub const touch_cmd = @import("commands/touch.zig");
 pub const cut_cmd = @import("commands/cut.zig");
 pub const paste_cmd = @import("commands/paste.zig");
 pub const seq_cmd = @import("commands/seq.zig");
+pub const sort_cmd = @import("commands/sort.zig");
+pub const uniq_cmd = @import("commands/uniq.zig");
+pub const comm_cmd = @import("commands/comm.zig");
+pub const shuf_cmd = @import("commands/shuf.zig");
+pub const tac_cmd = @import("commands/tac.zig");
 
 // Utility modules
 pub const utils = struct {
