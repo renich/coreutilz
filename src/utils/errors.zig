@@ -81,8 +81,8 @@ pub fn printAmbiguousOption(writer: anytype, command: []const u8, opt: []const u
 /// Standard version string format
 pub fn printVersion(writer: anytype, command: []const u8, version: []const u8) !void {
     try writer.print("{s} (coreutilz) {s}\n", .{ command, version });
-    try writer.print("Copyright (C) 2025 EVALinux\n", .{});
-    try writer.print("License MIT: The MIT License <https://opensource.org/licenses/MIT>\n", .{});
+    try writer.print("Copyright (C) 2026 EVALinux\n", .{});
+    try writer.print("License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n", .{});
     try writer.print("This is free software: you are free to change and redistribute it.\n", .{});
     try writer.print("There is NO WARRANTY, to the extent permitted by law.\n", .{});
 }
