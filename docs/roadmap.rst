@@ -37,14 +37,26 @@ The Coreutilz roadmap is sequenced into dependency-aware phases. Each phase requ
    * - Phase 4
      - Advanced Stream & File Operators
      - ``dd``, ``ln``, ``cp``, ``mv``
-     - **IN PROGRESS**
+     - **100% PASS**
    * - Phase 5
      - Expanded GNU Suite
-     - ``ls``, ``sort``, ``uniq``, ``tail``, ``df``, ``du``, ``chown``, ``chgrp``, ``mknod``, ``mkfifo``, etc.
-     - **PLANNED**
+     - ``ls``, ``dir``, ``vdir``, ``sort``, ``uniq``, ``tail``, ``df``, ``du``, ``chown``, ``chgrp``, etc.
+     - **IN PROGRESS**
 
-Phase 4: Advanced Stream & File Operators (Active Track)
-========================================================
+Phase 5: Expanded GNU Suite (Active Track)
+==========================================
+
+Track 5A: Directory Listing (``ls``, ``dir``, ``vdir``)
+-------------------------------------------------------
+
+* **Scope**: Multi-column terminal formatting, long detailed listing, recursive directory inspection, sorting disciplines.
+* **Requirements**:
+  - Implemented under ``SPEC-FUNC-LS`` and ``SPEC-TECH-LS``.
+  - Column alignment down columns (``-C``) and across rows (``-x``) with terminal width auto-detection.
+  - Detailed format (``-l``) with permissions, link counts, UID/GID name caching, human sizes (``-h``), and timestamps.
+  - Recursive listing (``-R``) and directory self-listing (``-d``).
+  - Dedicated entrypoint variants: ``ls`` (adaptive TTY layout), ``dir`` (default columns), ``vdir`` (default long listing).
+* **Pass Baseline**: **100% PASS** (46 passed, 6 skipped, 0 failed on GNU Coreutils upstream test suite).
 
 Track 4A: ``dd`` Data Duplicator
 ---------------------------------

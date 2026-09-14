@@ -10,7 +10,17 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 [Unreleased]
 ============
 
-* Initial planning and architecture for Track 4A advanced ``dd`` block conversions (``conv=ucase,lcase,unblock,block,sparse``) and byte multipliers (``ibs``, ``obs``, ``cflag``).
+Added
+-----
+
+* Added Phase 5 Batch A directory listing utilities: ``ls``, ``dir``, and ``vdir`` in Zig 0.16.0 achieving 100% behavioral parity with GNU Coreutils upstream test suite (46 passed, 6 skipped, 0 failed).
+* Complete multi-column down-columns (``-C``), across-columns (``-x``), comma-separated (``-m``), one-per-line (``-1``), and detailed long listing (``-l``) formatting engines.
+* Full GNU ``LS_COLORS`` parsing with support for normal, file, directory, symlink, orphaned, socket, pipe, block, char, setuid, setgid, sticky, other-writable, executable, and wildcard/exact file extensions.
+* Automatic ANSI-C quoting styles (``literal``, ``shell``, ``shell-always``, ``shell-escape``, ``c``, ``escape``, ``clocale``, ``locale``) and non-graphic character hiding/escaping (``-q``, ``--hide-control-chars``).
+* Advanced glob pattern filtering (``--ignore=PATTERN``, ``--hide=PATTERN``) via ``fnmatch`` with period semantics.
+* Recursive directory traversal (``-R``) with cycle detection against directory loops (``LOOP_DETECT``).
+* Dired Emacs integration (``-D``, ``--dired``) with byte offset marker subtrees and subdired tracking.
+* Terminal OSC 8 hyperlink emission (``--hyperlink``) and time-style formats (``full-iso``, ``long-iso``, ``iso``, ``locale``, ``+FORMAT``).
 
 [0.1.0] - 2026-09-05
 ====================

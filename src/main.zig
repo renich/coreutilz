@@ -143,6 +143,12 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.paste_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "seq")) {
         return try coreutilz.seq_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "ls")) {
+        return try coreutilz.ls_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "dir")) {
+        return try coreutilz.dir_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "vdir")) {
+        return try coreutilz.vdir_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -159,10 +165,10 @@ fn printUsage() void {
         \\   or: <command> [arguments...] (via symlink)
         \\
         \\Available commands:
-        \\  basename, cat, chmod, cp, cut, dd, dirname, echo, env, false,
-        \\  head, hostid, hostname, link, ln, logname, mkdir, mv, nproc,
+        \\  basename, cat, chmod, cp, cut, dd, dir, dirname, echo, env, false,
+        \\  head, hostid, hostname, link, ln, logname, ls, mkdir, mv, nproc,
         \\  paste, printenv, pwd, readlink, rm, rmdir, seq, sleep, stat,
-        \\  sync, tee, touch, true, truncate, tty, unlink, wc, whoami, yes
+        \\  sync, tee, touch, true, truncate, tty, unlink, vdir, wc, whoami, yes
         \\
     ) catch {};
     writer.interface.flush() catch {};

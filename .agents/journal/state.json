@@ -1,7 +1,7 @@
 {
+  "active_track": "phase-5-batch-a-complete",
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
-  "active_track": "crucible-hardening",
-  "toolchain": "zig-0.16.0",
-  "status": "all_upstream_259_passed_100_percent"
+  "status": "shipped_ls_dir_vdir",
+  "toolchain": "zig-0.16.0"
 }

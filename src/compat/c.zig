@@ -6,6 +6,7 @@ pub const c = @cImport({
     @cInclude("dirent.h");
     @cInclude("errno.h");
     @cInclude("fcntl.h");
+    @cInclude("fnmatch.h");
     @cInclude("getopt.h");
     @cInclude("grp.h");
     @cInclude("locale.h");
