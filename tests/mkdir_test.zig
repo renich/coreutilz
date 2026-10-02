@@ -241,3 +241,18 @@ test "mkdir -p with trailing dot and dotdot" {
     try testing.expectEqual(@as(u8, 0), r2.exit_code);
     try testing.expect(ctx.pathExists("d2"));
 }
+
+test "mkdir --context handling" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "mkdir");
+    defer allocator.free(binary_path);
+
+    var r1 = try ctx.runCommand(&[_][]const u8{ binary_path, "--context", "ctxdir" }, null);
+    defer r1.deinit();
+    try testing.expectEqual(@as(u8, 0), r1.exit_code);
+    try testing.expect(ctx.pathExists("ctxdir"));
+}

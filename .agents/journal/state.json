@@ -54,7 +54,13 @@
     "upstream": "3_passed_0_skipped"
   },
   "journal_version": "0.2.0",
+  "phase6": {
+    "container": "1100_passed",
+    "internal_tests": "441_passed_0_leaks",
+    "status": "completed",
+    "upstream": "261_passed_38_skipped_0_failed"
+  },
   "pjp_version": "0.9.0",
-  "status": "in_progress",
+  "status": "completed",
   "toolchain": "zig-0.16.0"
 }

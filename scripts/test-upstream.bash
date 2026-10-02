@@ -222,6 +222,7 @@ run_test() {
     export EGREP="grep -E"
     export PERL="perl"
     export MAKE="make"
+    export SHELL="/usr/bin/bash"
     export CONFIG_HEADER="${UPSTREAM_DIR}/lib/config.h"
     # Skip internal debug visualizer tests (interactive terminal annotation engine)
     if [[ "${rel_test}" == tests/sort/sort-debug-*.sh || \

@@ -94,3 +94,20 @@ test "timeout --version" {
     try testing.expectEqual(@as(u8, 0), result.exit_code);
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "timeout"));
 }
+
+test "timeout --signal with RTMAX and PIPE" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "timeout");
+    defer allocator.free(binary_path);
+
+    var r1 = try ctx.runCommand(&[_][]const u8{ binary_path, "--signal=PIPE", "10", "true" }, null);
+    defer r1.deinit();
+    try testing.expectEqual(@as(u8, 0), r1.exit_code);
+
+    var r2 = try ctx.runCommand(&[_][]const u8{ binary_path, "--signal=RTMAX", "10", "true" }, null);
+    defer r2.deinit();
+    try testing.expectEqual(@as(u8, 0), r2.exit_code);
+}

@@ -1,6 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 const mode_util = @import("../utils/mode.zig");
+const selinux_util = @import("../utils/selinux.zig");
 const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "mkdir";
@@ -76,8 +77,13 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                         return 1;
                     };
                     mode_provided = true;
-                } else if (std.mem.startsWith(u8, opt, "--context")) {
-                    // SELinux context option - accept and ignore
+                } else if (std.mem.startsWith(u8, opt, "--context=")) {
+                    const ctx = opt["--context=".len..];
+                    if (ctx.len > 0) {
+                        if (!selinux_util.setFsCreateCon(name, ctx, stderr)) return 1;
+                    }
+                } else if (std.mem.eql(u8, opt, "--context")) {
+                    // Default context; no custom context to set
                 } else {
                     try errors.printUnrecognizedOption(stderr, name, arg);
                     return 1;

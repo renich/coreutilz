@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("../compat/c.zig").c;
+const kill_signals = @import("kill/signals.zig");
 
 pub const name: []const u8 = "timeout";
 pub const version: []const u8 = "0.1.0";
@@ -44,21 +45,9 @@ fn parseDuration(s: []const u8) ?f64 {
 }
 
 fn parseSignal(s: []const u8) ?c_int {
-    if (std.fmt.parseInt(c_int, s, 10)) |num| {
-        return num;
-    } else |_| {}
-    var name_str = s;
-    if (std.mem.startsWith(u8, name_str, "SIG") or std.mem.startsWith(u8, name_str, "sig")) {
-        name_str = name_str[3..];
+    if (kill_signals.parseOperandToSig(s)) |sig_num| {
+        return @intCast(sig_num);
     }
-    if (std.ascii.eqlIgnoreCase(name_str, "HUP")) return c.SIGHUP;
-    if (std.ascii.eqlIgnoreCase(name_str, "INT")) return c.SIGINT;
-    if (std.ascii.eqlIgnoreCase(name_str, "QUIT")) return c.SIGQUIT;
-    if (std.ascii.eqlIgnoreCase(name_str, "KILL")) return c.SIGKILL;
-    if (std.ascii.eqlIgnoreCase(name_str, "TERM")) return c.SIGTERM;
-    if (std.ascii.eqlIgnoreCase(name_str, "USR1")) return c.SIGUSR1;
-    if (std.ascii.eqlIgnoreCase(name_str, "USR2")) return c.SIGUSR2;
-    if (std.ascii.eqlIgnoreCase(name_str, "ALRM")) return c.SIGALRM;
     return null;
 }
 
@@ -114,22 +103,15 @@ fn execChild(cmd_args: []const []const u8, foreground: bool, allocator: std.mem.
 }
 
 fn sigToName(sig: c_int, buf: []u8) []const u8 {
-    return switch (sig) {
-        0 => "0",
-        c.SIGHUP => "HUP",
-        c.SIGINT => "INT",
-        c.SIGQUIT => "QUIT",
-        c.SIGKILL => "KILL",
-        c.SIGTERM => "TERM",
-        c.SIGALRM => "ALRM",
-        c.SIGUSR1 => "USR1",
-        c.SIGUSR2 => "USR2",
-        else => std.fmt.bufPrint(buf, "{d}", .{sig}) catch "TERM",
-    };
+    if (sig >= 0 and sig <= 64) {
+        if (kill_signals.signumToName(@intCast(sig))) |sname| {
+            return sname;
+        }
+    }
+    return std.fmt.bufPrint(buf, "{d}", .{sig}) catch "TERM";
 }
 
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
-    _ = c.signal(c.SIGPIPE, c.SIG_IGN);
     var stdout_buf: [4096]u8 = undefined;
     var out_w = std.Io.File.Writer.initStreaming(.stdout(), std.Options.debug_io, &stdout_buf);
     const writer = &out_w.interface;

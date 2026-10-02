@@ -1,6 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 const mode_util = @import("../utils/mode.zig");
+const selinux_util = @import("../utils/selinux.zig");
 const c = @import("../compat/c.zig").c;
 const node = @import("mknod/node.zig");
 
@@ -107,8 +108,16 @@ fn handleLongOpt(
         return false;
     } else if (std.mem.startsWith(u8, arg, "--mode=") or std.mem.eql(u8, arg, "--mode")) {
         return handleLongMode(arg, i, args, cur_umask, res, stderr);
-    } else if (std.mem.startsWith(u8, arg, "--context")) {
-        // SELinux parity
+    } else if (std.mem.startsWith(u8, arg, "--context=")) {
+        const ctx = arg["--context=".len..];
+        if (ctx.len > 0) {
+            if (!selinux_util.setFsCreateCon(name, ctx, stderr)) {
+                res.early_exit = 1;
+                return false;
+            }
+        }
+    } else if (std.mem.eql(u8, arg, "--context")) {
+        // default context
     } else {
         try stderr.print("mknod: unrecognized option '{s}'\nTry 'mknod --help' for more information.\n", .{arg});
         res.early_exit = 1;
@@ -231,38 +240,7 @@ fn executeMknod(
         return 1;
     }
 
-    return executeDevNode(operands, type_char, mode, mode_provided, allocator, stderr);
-}
-
-fn executeDevNode(
-    operands: []const []const u8,
-    type_char: u8,
-    mode: u32,
-    mode_provided: bool,
-    allocator: std.mem.Allocator,
-    stderr: anytype,
-) !u8 {
-    if (operands.len < 4) {
-        try stderr.print("mknod: missing operand after '{s}'\nSpecial files require major and minor device numbers.\nTry 'mknod --help' for more information.\n", .{operands[operands.len - 1]});
-        return 1;
-    }
-    if (operands.len > 4) {
-        try stderr.print("mknod: extra operand '{s}'\nTry 'mknod --help' for more information.\n", .{operands[4]});
-        return 1;
-    }
-
-    const major = node.parseDeviceNum(operands[2]) catch {
-        try stderr.print("mknod: invalid major device number '{s}'\n", .{operands[2]});
-        return 1;
-    };
-    const minor = node.parseDeviceNum(operands[3]) catch {
-        try stderr.print("mknod: invalid minor device number '{s}'\n", .{operands[3]});
-        return 1;
-    };
-
-    const node_type: c.mode_t = if (type_char == 'b') c.S_IFBLK else c.S_IFCHR;
-    const dev = node.makeDev(major, minor);
-    return node.createSpecialNode(operands[0], node_type, dev, mode, mode_provided, allocator, stderr);
+    return node.executeDevNode(operands, type_char, mode, mode_provided, allocator, stderr);
 }
 
 fn printHelp(stdout: anytype) !void {

@@ -1,6 +1,7 @@
 const std = @import("std");
 const errors = @import("../utils/errors.zig");
 const mode_util = @import("../utils/mode.zig");
+const selinux_util = @import("../utils/selinux.zig");
 const c = @import("../compat/c.zig").c;
 
 pub const name: []const u8 = "mkfifo";
@@ -109,8 +110,16 @@ fn handleLongOpt(
         return false;
     } else if (std.mem.startsWith(u8, arg, "--mode=") or std.mem.eql(u8, arg, "--mode")) {
         return handleLongMode(arg, i, args, cur_umask, res, stderr);
-    } else if (std.mem.startsWith(u8, arg, "--context")) {
-        // SELinux parity
+    } else if (std.mem.startsWith(u8, arg, "--context=")) {
+        const ctx = arg["--context=".len..];
+        if (ctx.len > 0) {
+            if (!selinux_util.setFsCreateCon(name, ctx, stderr)) {
+                res.early_exit = 1;
+                return false;
+            }
+        }
+    } else if (std.mem.eql(u8, arg, "--context")) {
+        // default context
     } else {
         try stderr.print("mkfifo: unrecognized option '{s}'\nTry 'mkfifo --help' for more information.\n", .{arg});
         res.early_exit = 1;

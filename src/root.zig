@@ -117,6 +117,7 @@ pub const utils = struct {
     pub const backup = @import("utils/backup.zig");
     pub const runner = @import("utils/runner.zig");
     pub const signals = @import("utils/signals.zig");
+    pub const selinux = @import("utils/selinux.zig");
 };
 
 pub const compat = @import("compat/c.zig");
