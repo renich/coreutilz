@@ -10,3 +10,4 @@ Coreutilz Functional Specification Repository
    specs/text-sorting-grouping
    specs/text-splitting-filtering
    specs/storage-device-primitives
+   specs/checksums-base-encodings

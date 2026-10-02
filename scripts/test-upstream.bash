@@ -43,7 +43,7 @@ for bin_path in "${BIN_DIR}"/*; do
 done
 
 # Symlink standard test helper binaries from host if not in BIN_DIR
-for helper in test '[' expr printf nice timeout; do
+for helper in test '[' expr printf nice timeout date od; do
     if [[ ! -e "${UPSTREAM_DIR}/src/${helper}" && -x "/usr/bin/${helper}" ]]; then
         ln -sf "/usr/bin/${helper}" "${UPSTREAM_DIR}/src/${helper}"
     fi
@@ -88,26 +88,88 @@ find_tests_for_cmd() {
     local cmd="$1"
     local tests=()
 
-    if [[ -d "${UPSTREAM_DIR}/tests/${cmd}" ]]; then
-        while IFS= read -r t; do
-            [[ -n "${t}" ]] && tests+=("${t}")
-        done < <(find "${UPSTREAM_DIR}/tests/${cmd}" -maxdepth 1 \( -name "*.sh" -o -name "*.pl" \) | sort)
-    fi
+    case "${cmd}" in
+        cksum)
+            for t in "${UPSTREAM_DIR}/tests/cksum"/cksum*.sh "${UPSTREAM_DIR}/tests/cksum"/cksum*.pl "${UPSTREAM_DIR}/tests/cksum"/sum*.sh "${UPSTREAM_DIR}/tests/cksum"/sum*.pl "${UPSTREAM_DIR}/tests/cksum"/sm3sum.pl; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
+        b2sum)
+            if [[ -f "${UPSTREAM_DIR}/tests/cksum/b2sum.sh" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/cksum/b2sum.sh")
+            fi
+            ;;
+        md5sum)
+            for t in "${UPSTREAM_DIR}/tests/cksum"/md5sum*.sh "${UPSTREAM_DIR}/tests/cksum"/md5sum*.pl; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
+        sha1sum)
+            for t in "${UPSTREAM_DIR}/tests/cksum"/sha1sum*.pl; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
+        sha224sum)
+            if [[ -f "${UPSTREAM_DIR}/tests/cksum/sha224sum.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/cksum/sha224sum.pl")
+            fi
+            ;;
+        sha256sum)
+            if [[ -f "${UPSTREAM_DIR}/tests/cksum/sha256sum.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/cksum/sha256sum.pl")
+            fi
+            ;;
+        sha384sum)
+            if [[ -f "${UPSTREAM_DIR}/tests/cksum/sha384sum.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/cksum/sha384sum.pl")
+            fi
+            ;;
+        sha512sum)
+            if [[ -f "${UPSTREAM_DIR}/tests/cksum/sha512sum.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/cksum/sha512sum.pl")
+            fi
+            ;;
+        base64|base32)
+            if [[ -f "${UPSTREAM_DIR}/tests/basenc/base64.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/basenc/base64.pl")
+            fi
+            ;;
+        basenc)
+            for t in "${UPSTREAM_DIR}/tests/basenc"/basenc.pl "${UPSTREAM_DIR}/tests/basenc"/*.sh; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
+        *)
+            if [[ -d "${UPSTREAM_DIR}/tests/${cmd}" ]]; then
+                while IFS= read -r t; do
+                    [[ -n "${t}" ]] && tests+=("${t}")
+                done < <(find "${UPSTREAM_DIR}/tests/${cmd}" -maxdepth 1 \( -name "*.sh" -o -name "*.pl" \) | sort)
+            fi
 
-    if [[ -f "${UPSTREAM_DIR}/tests/misc/${cmd}.pl" ]]; then
-        tests+=("${UPSTREAM_DIR}/tests/misc/${cmd}.pl")
-    fi
-    if [[ -f "${UPSTREAM_DIR}/tests/misc/${cmd}.sh" ]]; then
-        tests+=("${UPSTREAM_DIR}/tests/misc/${cmd}.sh")
-    fi
-    if [[ "${cmd}" == "mkfifo" && -f "${UPSTREAM_DIR}/tests/misc/mknod.sh" ]]; then
-        tests+=("${UPSTREAM_DIR}/tests/misc/mknod.sh")
-    fi
-    for mf in "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.sh "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.pl; do
-        if [[ -f "${mf}" ]]; then
-            tests+=("${mf}")
-        fi
-    done
+            if [[ -f "${UPSTREAM_DIR}/tests/misc/${cmd}.pl" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/misc/${cmd}.pl")
+            fi
+            if [[ -f "${UPSTREAM_DIR}/tests/misc/${cmd}.sh" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/misc/${cmd}.sh")
+            fi
+            if [[ "${cmd}" == "mkfifo" && -f "${UPSTREAM_DIR}/tests/misc/mknod.sh" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/misc/mknod.sh")
+            fi
+            for mf in "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.sh "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.pl; do
+                if [[ -f "${mf}" ]]; then
+                    tests+=("${mf}")
+                fi
+            done
+            ;;
+    esac
 
     printf '%s\n' "${tests[@]}"
 }

@@ -10,3 +10,4 @@ Coreutilz Technical Blueprint Specification
    specs/text-sorting-grouping
    specs/text-splitting-filtering
    specs/storage-device-primitives
+   specs/checksums-base-encodings

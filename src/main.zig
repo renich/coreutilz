@@ -56,7 +56,7 @@ fn handleDispatchError(command: []const u8, err: anyerror) void {
         error.BrokenPipe => {
             stderr.print("{s}: write error: Broken pipe\n", .{command}) catch {};
         },
-        error.WriteFailed, error.DiskFull, error.NoSpaceLeft => {
+        error.WriteFailed, error.DiskFull, error.NoSpaceLeft, error.WriteError => {
             const errno_val = coreutilz.compat.c.__errno_location().*;
             if (errno_val != 0) {
                 const err_str = std.mem.span(coreutilz.compat.c.strerror(errno_val));
@@ -187,6 +187,28 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.df_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "du")) {
         return try coreutilz.du_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "cksum")) {
+        return try coreutilz.cksum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "b2sum")) {
+        return try coreutilz.b2sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "md5sum")) {
+        return try coreutilz.md5sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sha1sum")) {
+        return try coreutilz.sha1sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sha224sum")) {
+        return try coreutilz.sha224sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sha256sum")) {
+        return try coreutilz.sha256sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sha384sum")) {
+        return try coreutilz.sha384sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "sha512sum")) {
+        return try coreutilz.sha512sum_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "base64")) {
+        return try coreutilz.base64_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "base32")) {
+        return try coreutilz.base32_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "basenc")) {
+        return try coreutilz.basenc_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -207,7 +229,9 @@ fn printUsage() void {
         \\  false, fold, head, hostid, hostname, link, ln, logname, ls, mkdir, mv,
         \\  nproc, paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort,
         \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
-        \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du
+        \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du,
+        \\  cksum, b2sum, md5sum, sha1sum, sha224sum, sha256sum, sha384sum, sha512sum,
+        \\  base64, base32, basenc
         \\
     ) catch {};
     writer.interface.flush() catch {};

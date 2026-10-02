@@ -139,5 +139,8 @@ Phase 5: Expanded Coreutils Suite (Roadmap Vision)
   - Status: COMPLETE (55 passed, 9 skipped, 0 failed in GNU Coreutils test harness, 586/586 internal tests passing, 490/490 container permutations).
 * **Batch D (Storage & Device Primitives)**: ``df``, ``du``, ``chown``, ``chgrp``, ``mknod``, ``mkfifo``
   - Status: COMPLETE (45 passed, 12 skipped, 0 failed in GNU Coreutils test harness, 860/860 internal tests passing, 600/600 container permutations).
-* **Batch E (Checksums & Formatting)**: ``cksum``, ``b2sum``, ``md5sum``, ``sha1sum``, ``sha256sum``, ``sha512sum``, ``base64``, ``base32``, ``basenc``, ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``
+* **Batch E (Checksums & Base Encodings)**: ``cksum``, ``b2sum``, ``md5sum``, ``sha1sum``, ``sha224sum``, ``sha256sum``, ``sha384sum``, ``sha512sum``, ``base64``, ``base32``, ``basenc``
+  - Status: COMPLETE (23 passed, 3 skipped, 0 failed in GNU Coreutils test harness, 281 test runners passing, 710 container permutations).
+* **Batch F (Text Formatting)**: ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``
   - Status: Planned (Next Active Track).
+

@@ -1,5 +1,5 @@
 {
-  "active_track": "phase5-batch-d",
+  "active_track": "phase5_batch_e",
   "batch_c": {
     "csplit": "5_passed",
     "fold": "5_passed",
@@ -18,8 +18,23 @@
     "mkfifo": "1_passed",
     "mknod": "1_passed"
   },
+  "batch_e": {
+    "b2sum": "1_passed",
+    "base32": "1_passed",
+    "base64": "1_passed",
+    "basenc": "3_passed",
+    "cksum": "7_passed_3_skipped",
+    "container_permutations": "710_passed",
+    "internal_tests": "281_passed",
+    "md5sum": "4_passed",
+    "sha1sum": "2_passed",
+    "sha224sum": "1_passed",
+    "sha256sum": "1_passed",
+    "sha384sum": "1_passed",
+    "sha512sum": "1_passed"
+  },
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
-  "status": "batch_d_completed",
+  "status": "completed",
   "toolchain": "zig-0.16.0"
 }

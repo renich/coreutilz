@@ -58,6 +58,17 @@ pub const csplit_cmd = @import("commands/csplit.zig");
 pub const tail_cmd = @import("commands/tail.zig");
 pub const tr_cmd = @import("commands/tr.zig");
 pub const fold_cmd = @import("commands/fold.zig");
+pub const cksum_cmd = @import("commands/cksum.zig");
+pub const b2sum_cmd = @import("commands/b2sum.zig");
+pub const md5sum_cmd = @import("commands/md5sum.zig");
+pub const sha1sum_cmd = @import("commands/sha1sum.zig");
+pub const sha224sum_cmd = @import("commands/sha224sum.zig");
+pub const sha256sum_cmd = @import("commands/sha256sum.zig");
+pub const sha384sum_cmd = @import("commands/sha384sum.zig");
+pub const sha512sum_cmd = @import("commands/sha512sum.zig");
+pub const base64_cmd = @import("commands/base64.zig");
+pub const base32_cmd = @import("commands/base32.zig");
+pub const basenc_cmd = @import("commands/basenc.zig");
 
 // Utility modules
 pub const utils = struct {

@@ -41,7 +41,7 @@ fn handleError(command: []const u8, err: anyerror) void {
         error.BrokenPipe => {
             stderr.print("{s}: write error: Broken pipe\n", .{command}) catch {};
         },
-        error.WriteFailed, error.DiskFull, error.NoSpaceLeft => {
+        error.WriteFailed, error.DiskFull, error.NoSpaceLeft, error.WriteError => {
             const errno_val = c.__errno_location().*;
             if (errno_val != 0) {
                 const err_str = std.mem.span(c.strerror(errno_val));

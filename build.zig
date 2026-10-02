@@ -11,14 +11,15 @@ pub fn build(b: *std.Build) void {
     mod.link_libc = true;
 
     const commands = [_][]const u8{
-        "true",  "false",    "echo",   "cat",     "hostname", "logname",  "tty",   "whoami",
-        "nproc", "hostid",   "unlink", "dirname", "basename", "printenv", "pwd",   "readlink",
-        "mkdir", "rmdir",    "rm",     "link",    "yes",      "sleep",    "sync",  "env",
-        "cp",    "mv",       "chmod",  "ln",      "stat",     "dd",       "head",  "wc",
-        "tee",   "truncate", "touch",  "cut",     "paste",    "seq",      "ls",    "dir",
-        "vdir",  "sort",     "uniq",   "comm",    "shuf",     "tac",      "split", "csplit",
-        "tail",  "tr",       "fold",   "mkfifo",  "mknod",    "chown",    "chgrp", "df",
-        "du",
+        "true",      "false",    "echo",   "cat",     "hostname", "logname",   "tty",       "whoami",
+        "nproc",     "hostid",   "unlink", "dirname", "basename", "printenv",  "pwd",       "readlink",
+        "mkdir",     "rmdir",    "rm",     "link",    "yes",      "sleep",     "sync",      "env",
+        "cp",        "mv",       "chmod",  "ln",      "stat",     "dd",        "head",      "wc",
+        "tee",       "truncate", "touch",  "cut",     "paste",    "seq",       "ls",        "dir",
+        "vdir",      "sort",     "uniq",   "comm",    "shuf",     "tac",       "split",     "csplit",
+        "tail",      "tr",       "fold",   "mkfifo",  "mknod",    "chown",     "chgrp",     "df",
+        "du",        "cksum",    "b2sum",  "md5sum",  "sha1sum",  "sha224sum", "sha256sum", "sha384sum",
+        "sha512sum", "base64",   "base32", "basenc",
     };
 
     const install_step = b.getInstallStep();

@@ -120,7 +120,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             try stderr.print("{s}: -: input file is output file\n", .{name});
             return 1;
         }
-        try processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
+        processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr) catch {
+            const errno_val = c.__errno_location().*;
+            const msg = if (errno_val != 0) std.mem.span(c.strerror(errno_val)) else "Input/output error";
+            try stderr.print("{s}: -: {s}\n", .{ name, msg });
+            return 1;
+        };
     } else {
         for (args[file_start..]) |filename| {
             if (std.mem.eql(u8, filename, "-")) {
@@ -129,7 +134,13 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                     exit_status = 1;
                     continue;
                 }
-                try processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
+                processFile(std.Io.File.stdin(), stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr) catch {
+                    const errno_val = c.__errno_location().*;
+                    const msg = if (errno_val != 0) std.mem.span(c.strerror(errno_val)) else "Input/output error";
+                    try stderr.print("{s}: -: {s}\n", .{ name, msg });
+                    exit_status = 1;
+                    continue;
+                };
                 try stdout.flush();
             } else {
                 const file = std.Io.Dir.cwd().openFile(std.Options.debug_io, filename, .{ .mode = .read_only }) catch |err| {
@@ -145,7 +156,13 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
                     continue;
                 }
 
-                try processFile(file, stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr);
+                processFile(file, stdout, any_options, number, number_nonblank, show_ends, show_tabs, show_nonprinting, squeeze_blank, &line_num, &consecutive_newlines, &at_line_start, &pending_cr) catch {
+                    const errno_val = c.__errno_location().*;
+                    const msg = if (errno_val != 0) std.mem.span(c.strerror(errno_val)) else "Input/output error";
+                    try stderr.print("{s}: {s}: {s}\n", .{ name, filename, msg });
+                    exit_status = 1;
+                    continue;
+                };
                 try stdout.flush();
             }
         }
