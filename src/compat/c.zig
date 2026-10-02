@@ -25,10 +25,13 @@ pub const c = @cImport({
     @cInclude("sys/statvfs.h");
     @cInclude("sys/sysmacros.h");
     @cInclude("sys/types.h");
+    @cInclude("sys/utsname.h");
     @cInclude("sys/wait.h");
+    @cInclude("sys/xattr.h");
     @cInclude("termios.h");
     @cInclude("time.h");
     @cInclude("unistd.h");
+    @cInclude("utmpx.h");
     @cInclude("wchar.h");
     @cInclude("wctype.h");
 });

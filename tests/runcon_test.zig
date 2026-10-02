@@ -5,8 +5,8 @@ const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
 fn hasSELinux() bool {
-    const f = std.fs.openFileAbsolute("/sys/fs/selinux/enforce", .{}) catch return false;
-    f.close();
+    const f = std.Io.Dir.openFileAbsolute(std.testing.io, "/sys/fs/selinux/enforce", .{}) catch return false;
+    f.close(std.testing.io);
     return true;
 }
 

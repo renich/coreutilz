@@ -5,9 +5,8 @@ const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
 fn hasSELinux() bool {
-    // A simple check for SELinux being enabled
-    const f = std.fs.openFileAbsolute("/sys/fs/selinux/enforce", .{}) catch return false;
-    f.close();
+    const f = std.Io.Dir.openFileAbsolute(std.testing.io, "/sys/fs/selinux/enforce", .{}) catch return false;
+    f.close(std.testing.io);
     return true;
 }
 
@@ -95,7 +94,7 @@ test "chcon -R recursive (SELinux only)" {
     const binary_path = try getBinaryPath(allocator, "chcon");
     defer allocator.free(binary_path);
 
-    std.fs.cwd().makePath("testdir") catch {};
+    ctx.tmp_dir.dir.createDirPath(std.testing.io, "testdir") catch {};
     try ctx.writeFile("testdir/test.txt", "content");
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);

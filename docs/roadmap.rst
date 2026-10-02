@@ -146,7 +146,7 @@ Phase 5: Expanded Coreutils Suite (Roadmap Vision)
 * **Batch G (Execution, Process & System State)**: ``timeout``, ``nice``, ``nohup``, ``stdbuf``, ``stty``, ``date``, ``chroot``
   - Status: COMPLETE (16 passed, 12 skipped, 0 failed in GNU Coreutils test harness, 341/341 internal tests passing, 860/860 container permutations).
 * **Batch H (Identity, Security & Environment)**: ``id``, ``groups``, ``who``, ``users``, ``pinky``, ``uname``, ``arch``, ``chcon``, ``runcon``
-  - Status: Planned.
+  - Status: COMPLETE (10 passed, 5 skipped, 0 failed in GNU Coreutils test harness, 377/377 internal test runners passing, 950/950 container permutations).
 * **Batch I (Advanced Shell, Relational & Math)**: ``test`` / ``[``, ``expr``, ``factor``, ``printf``, ``join``, ``tsort``, ``shred``, ``mktemp``, ``realpath``, ``pathchk``, ``install``, ``dircolors``
-  - Status: Planned.
+  - Status: Planned (Next Active Track).
 

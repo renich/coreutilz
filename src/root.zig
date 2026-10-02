@@ -84,6 +84,15 @@ pub const stdbuf_cmd = @import("commands/stdbuf.zig");
 pub const stty_cmd = @import("commands/stty.zig");
 pub const date_cmd = @import("commands/date.zig");
 pub const chroot_cmd = @import("commands/chroot.zig");
+pub const id_cmd = @import("commands/id.zig");
+pub const groups_cmd = @import("commands/groups.zig");
+pub const who_cmd = @import("commands/who.zig");
+pub const users_cmd = @import("commands/users.zig");
+pub const pinky_cmd = @import("commands/pinky.zig");
+pub const uname_cmd = @import("commands/uname.zig");
+pub const arch_cmd = @import("commands/arch.zig");
+pub const chcon_cmd = @import("commands/chcon.zig");
+pub const runcon_cmd = @import("commands/runcon.zig");
 
 // Utility modules
 pub const utils = struct {

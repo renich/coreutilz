@@ -239,6 +239,24 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.date_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "chroot")) {
         return try coreutilz.chroot_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "id")) {
+        return try coreutilz.id_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "groups")) {
+        return try coreutilz.groups_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "who")) {
+        return try coreutilz.who_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "users")) {
+        return try coreutilz.users_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "pinky")) {
+        return try coreutilz.pinky_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "uname")) {
+        return try coreutilz.uname_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "arch")) {
+        return try coreutilz.arch_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "chcon")) {
+        return try coreutilz.chcon_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "runcon")) {
+        return try coreutilz.runcon_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -262,7 +280,8 @@ fn printUsage() void {
         \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du,
         \\  cksum, b2sum, md5sum, sha1sum, sha224sum, sha256sum, sha384sum, sha512sum,
         \\  base64, base32, basenc, nl, fmt, pr, expand, unexpand, od, ptx, numfmt,
-        \\  timeout, nice, nohup, stdbuf, stty, date, chroot
+        \\  timeout, nice, nohup, stdbuf, stty, date, chroot, id, groups, who,
+        \\  users, pinky, uname, arch, chcon, runcon
         \\
     ) catch {};
 
