@@ -107,10 +107,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         .ok => |o| o,
         .help => {
             try printHelp(stdout);
+            stdout.flush() catch return 1;
             return 0;
         },
         .version => {
             try errors.printVersion(stdout, name, version);
+            stdout.flush() catch return 1;
             return 0;
         },
         .err => |code| return code,

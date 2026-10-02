@@ -9,3 +9,4 @@ Coreutilz Technical Blueprint Specification
    specs/directory-listing
    specs/text-sorting-grouping
    specs/text-splitting-filtering
+   specs/storage-device-primitives

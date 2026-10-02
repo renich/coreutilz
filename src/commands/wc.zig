@@ -270,7 +270,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         var buf: [16384]u8 = undefined;
         while (true) {
             const nr = c.read(f0_fd, &buf, buf.len);
-            if (nr <= 0) break;
+            if (nr < 0) {
+                const err_str = errnoString(c.__errno_location().*);
+                try stderr.print("wc: {s}: read error: {s}\n", .{ f0_path, err_str });
+                return 1;
+            }
+            if (nr == 0) break;
             const n: usize = @intCast(nr);
             for (buf[0..n]) |b| {
                 if (b == 0) {

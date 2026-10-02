@@ -8,8 +8,18 @@
     "tail": "29_passed_8_skipped",
     "tr": "2_passed"
   },
+  "batch_d": {
+    "chgrp": "6_passed_1_skipped",
+    "chown": "3_passed_1_skipped",
+    "container_permutations": "600_passed",
+    "df": "10_passed_4_skipped",
+    "du": "24_passed_6_skipped",
+    "internal_tests": "860_passed",
+    "mkfifo": "1_passed",
+    "mknod": "1_passed"
+  },
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
-  "status": "planning_batch_d",
+  "status": "batch_d_completed",
   "toolchain": "zig-0.16.0"
 }

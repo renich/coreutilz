@@ -4,122 +4,125 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "chown with user:group" {
+test "chown empty spec succeeds without modification" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
     const binary_path = try getBinaryPath(allocator, "chown");
     defer allocator.free(binary_path);
 
-    try ctx.writeFile("test.txt", "content\n");
-
+    try ctx.writeFile("f.txt", "test");
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "f.txt" });
     defer allocator.free(file_path);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "root:root", file_path }, null);
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "", file_path }, null);
     defer result.deinit();
 
-    // Note: chown may fail if not running as root
-    // Exit code 0 means success, non-zero means permission denied
-    if (result.exit_code == 0) {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "") or result.stderr.len == 0);
-    } else {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "Operation not permitted") or
-            std.mem.containsAtLeast(u8, result.stderr, 1, "Permission denied"));
-    }
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
 }
 
-test "chown with just user" {
+test "chown --preserve-root on root aborts with failsafe" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
     const binary_path = try getBinaryPath(allocator, "chown");
     defer allocator.free(binary_path);
 
-    try ctx.writeFile("test.txt", "content\n");
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-R", "--preserve-root", "0", "/" }, null);
+    defer result.deinit();
 
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "it is dangerous to operate recursively on '/'") != null);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "use --no-preserve-root to override this failsafe") != null);
+}
+
+test "chown missing operand emits diagnostic" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "chown");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{binary_path}, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "missing operand") != null);
+}
+
+test "chown invalid user reports error" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "chown");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("file.txt", "a");
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "file.txt" });
     defer allocator.free(file_path);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "root", file_path }, null);
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "nonexistent_user_9999999", file_path }, null);
     defer result.deinit();
 
-    if (result.exit_code == 0) {
-        try testing.expect(result.stderr.len == 0);
-    } else {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "Operation not permitted") or
-            std.mem.containsAtLeast(u8, result.stderr, 1, "Permission denied"));
-    }
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "invalid user") != null);
 }
 
-test "chown with :group" {
+test "chown dereference on dangling symlink fails with cannot dereference" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
     const binary_path = try getBinaryPath(allocator, "chown");
     defer allocator.free(binary_path);
 
-    try ctx.writeFile("test.txt", "content\n");
-
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
+    const link_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dangle" });
+    defer allocator.free(link_path);
+
+    const link_z = try allocator.dupeZ(u8, link_path);
+    defer allocator.free(link_z);
+    _ = std.os.linux.symlink("no-such", link_z.ptr);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--dereference", "0", link_path }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "cannot dereference") != null);
+}
+
+test "chown -R --dereference without -H or -L errors" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "chown");
+    defer allocator.free(binary_path);
+
+    try ctx.writeFile("f.txt", "1");
+    const tmp_path = try ctx.tmpPath(".");
+    defer allocator.free(tmp_path);
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "f.txt" });
     defer allocator.free(file_path);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, ":root", file_path }, null);
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-R", "--dereference", "0", file_path }, null);
     defer result.deinit();
 
-    if (result.exit_code == 0) {
-        try testing.expect(result.stderr.len == 0);
-    } else {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "Operation not permitted") or
-            std.mem.containsAtLeast(u8, result.stderr, 1, "Permission denied"));
-    }
-}
-
-test "chown -R recursive" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "chown");
-    defer allocator.free(binary_path);
-
-    try ctx.tmp_dir.dir.makePath("testdir/subdir");
-    try ctx.writeFile("testdir/file1.txt", "content1\n");
-    try ctx.writeFile("testdir/subdir/file2.txt", "content2\n");
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const dir_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "testdir" });
-    defer allocator.free(dir_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-R", "root:root", dir_path }, null);
-    defer result.deinit();
-
-    // Recursive chown may fail if not running as root
-    if (result.exit_code == 0) {
-        try testing.expect(result.stderr.len == 0);
-    } else {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "Operation not permitted") or
-            std.mem.containsAtLeast(u8, result.stderr, 1, "Permission denied"));
-    }
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.indexOf(u8, result.stderr, "-R --dereference requires either -H or -L") != null);
 }
 
 test "chown --reference file" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -139,64 +142,11 @@ test "chown --reference file" {
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--reference", ref_path, target_path }, null);
     defer result.deinit();
 
-    if (result.exit_code == 0) {
-        try testing.expect(result.stderr.len == 0);
-    } else {
-        try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "Operation not permitted") or
-            std.mem.containsAtLeast(u8, result.stderr, 1, "Permission denied"));
-    }
-}
-
-test "chown nonexistent file returns error" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "chown");
-    defer allocator.free(binary_path);
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "nonexistent.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "root:root", file_path }, null);
-    defer result.deinit();
-
-    try testing.expect(result.exit_code != 0);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "No such file") or
-        std.mem.containsAtLeast(u8, result.stderr, 1, "cannot access"));
-}
-
-test "chown invalid user returns error" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "chown");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "content\n");
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "nonexistentuser12345:", file_path }, null);
-    defer result.deinit();
-
-    try testing.expect(result.exit_code != 0);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "invalid user") or
-        std.mem.containsAtLeast(u8, result.stderr, 1, "unknown user") or
-        std.mem.containsAtLeast(u8, result.stderr, 1, "no such user"));
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
 }
 
 test "chown --help option" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
@@ -212,7 +162,6 @@ test "chown --help option" {
 
 test "chown --version option" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 

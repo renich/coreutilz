@@ -23,10 +23,12 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
         .ok => |o| o,
         .help => {
             try args_mod.printHelp(stdout);
+            stdout.flush() catch return 1;
             return 0;
         },
         .version => {
             try args_mod.printVersion(stdout);
+            stdout.flush() catch return 1;
             return 0;
         },
         .err => |code| return code,
@@ -58,7 +60,9 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var line_buf = buffer_mod.LineBuffer.init(allocator, input_fd);
     defer line_buf.deinit();
 
-    return executeSplit(allocator, &fm, &line_buf, patterns, opts.suppress_matched, stdout, stderr);
+    const rc = executeSplit(allocator, &fm, &line_buf, patterns, opts.suppress_matched, stdout, stderr);
+    stdout.flush() catch return 1;
+    return rc;
 }
 
 fn openInputFd(path: []const u8, stderr: anytype) !c_int {

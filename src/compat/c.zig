@@ -10,6 +10,7 @@ pub const c = @cImport({
     @cInclude("getopt.h");
     @cInclude("grp.h");
     @cInclude("locale.h");
+    @cInclude("mntent.h");
     @cInclude("poll.h");
     @cInclude("pwd.h");
     @cInclude("regex.h");

@@ -59,6 +59,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
 
     var diagnose_surprises = false;
     var recurse = false;
+    var preserve_root = false;
     var changes = false;
     var verbose = false;
     var silent = false;
@@ -92,7 +93,8 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             'f' => silent = true,
             'v' => verbose = true,
             REFERENCE_FILE_OPTION => reference_file = std.mem.span(c.optarg),
-            NO_PRESERVE_ROOT, PRESERVE_ROOT => {},
+            NO_PRESERVE_ROOT => preserve_root = false,
+            PRESERVE_ROOT => preserve_root = true,
             HELP_OPTION => {
                 printHelp(stdout) catch return 1;
                 stdout.flush() catch return 1;
@@ -192,6 +194,7 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
             mode_str,
             fixed_mode,
             recurse,
+            preserve_root,
             bit_flags,
             dereference,
             diagnose_surprises,
@@ -214,6 +217,7 @@ fn chmodRoot(
     mode_str: ?[]const u8,
     fixed_mode: ?u32,
     recurse: bool,
+    preserve_root: bool,
     bit_flags: i32,
     dereference: i32,
     diagnose_surprises: bool,
@@ -255,6 +259,20 @@ fn chmodRoot(
             try stderr.print("chmod: cannot access '{s}': {s}\n", .{ file, err_msg });
         }
         return false;
+    }
+
+    if (preserve_root and recurse) {
+        var root_st: c.struct_stat = undefined;
+        if (c.stat("/", &root_st) == 0) {
+            if (st.st_dev == root_st.st_dev and st.st_ino == root_st.st_ino) {
+                if (std.mem.eql(u8, file, "/") or std.mem.eql(u8, file, "/.")) {
+                    try stderr.print("chmod: it is dangerous to operate recursively on '/'\nchmod: use --no-preserve-root to override this failsafe\n", .{});
+                } else {
+                    try stderr.print("chmod: it is dangerous to operate recursively on '{s}' (same as '/')\nchmod: use --no-preserve-root to override this failsafe\n", .{file});
+                }
+                return false;
+            }
+        }
     }
 
     if (!follow_symlink and ((st.st_mode & c.S_IFMT) == c.S_IFLNK)) {

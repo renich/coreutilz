@@ -175,6 +175,18 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.tr_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "fold")) {
         return try coreutilz.fold_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "mkfifo")) {
+        return try coreutilz.mkfifo_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "mknod")) {
+        return try coreutilz.mknod_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "chown")) {
+        return try coreutilz.chown_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "chgrp")) {
+        return try coreutilz.chgrp_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "df")) {
+        return try coreutilz.df_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "du")) {
+        return try coreutilz.du_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -195,7 +207,7 @@ fn printUsage() void {
         \\  false, fold, head, hostid, hostname, link, ln, logname, ls, mkdir, mv,
         \\  nproc, paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort,
         \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
-        \\  unlink, vdir, wc, whoami, yes
+        \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du
         \\
     ) catch {};
     writer.interface.flush() catch {};

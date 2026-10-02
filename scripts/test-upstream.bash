@@ -28,6 +28,7 @@ if [[ ! -f "${UPSTREAM_DIR}/lib/config.h" ]]; then
 #define HAVE_INOTIFY 1
 #define HAVE_PRCTL 1
 #define HAVE_PTHREAD_T 1
+#define HAVE_GETMNTENT 1
 
 #endif
 CFG
@@ -98,6 +99,9 @@ find_tests_for_cmd() {
     fi
     if [[ -f "${UPSTREAM_DIR}/tests/misc/${cmd}.sh" ]]; then
         tests+=("${UPSTREAM_DIR}/tests/misc/${cmd}.sh")
+    fi
+    if [[ "${cmd}" == "mkfifo" && -f "${UPSTREAM_DIR}/tests/misc/mknod.sh" ]]; then
+        tests+=("${UPSTREAM_DIR}/tests/misc/mknod.sh")
     fi
     for mf in "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.sh "${UPSTREAM_DIR}/tests/misc/${cmd}-"*.pl; do
         if [[ -f "${mf}" ]]; then
