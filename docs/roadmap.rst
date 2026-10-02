@@ -136,14 +136,6 @@ Phase 5: Expanded Coreutils Suite (Roadmap Vision)
 * **Batch B (Text Sorting & Grouping)**: ``sort``, ``uniq``, ``comm``, ``shuf``, ``tac``
   - Status: COMPLETE (26 passed, 10 skipped, 0 failed in GNU Coreutils test harness).
 * **Batch C (Splitting & Filtering)**: ``split``, ``csplit``, ``tail``, ``tr``, ``fold``
-  - Status: IMPLEMENTED (Strike 3 Green & Quenched).
-  - Internal tests: 586/586 passing (100% green).
-  - GNU Coreutils test harness results:
-    * ``split``: 14 passed, 1 skipped, 0 failed.
-    * ``csplit``: 5 passed, 0 skipped, 0 failed.
-    * ``tr``: 2 passed, 0 skipped, 0 failed.
-    * ``fold``: 5 passed, 0 skipped, 0 failed.
-    * ``tail``: 28 passed, 8 skipped, 1 pending (``follow-stdin.sh`` timeout in headless test environment).
-  - Remaining: Strike 4 (Ship, Container Matrix, and Release).
-* **Batch D (Storage Inspection)**: ``df``, ``du``, ``chown``, ``chgrp``, ``mknod``, ``mkfifo``
-  - Status: Planned.
+  - Status: COMPLETE (55 passed, 9 skipped, 0 failed in GNU Coreutils test harness, 586/586 internal tests passing, 490/490 container permutations).
+* **Batch D (Storage & Device Primitives)**: ``df``, ``du``, ``chown``, ``chgrp``, ``mknod``, ``mkfifo``
+  - Status: Planned (Next Active Track).
