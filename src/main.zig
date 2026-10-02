@@ -57,7 +57,13 @@ fn handleDispatchError(command: []const u8, err: anyerror) void {
             stderr.print("{s}: write error: Broken pipe\n", .{command}) catch {};
         },
         error.WriteFailed, error.DiskFull, error.NoSpaceLeft => {
-            stderr.print("{s}: write error: {s}\n", .{ command, coreutilz.utils.errors.errorDescription(err) }) catch {};
+            const errno_val = coreutilz.compat.c.__errno_location().*;
+            if (errno_val != 0) {
+                const err_str = std.mem.span(coreutilz.compat.c.strerror(errno_val));
+                stderr.print("{s}: write error: {s}\n", .{ command, err_str }) catch {};
+            } else {
+                stderr.print("{s}: write error: No space left on device\n", .{command}) catch {};
+            }
         },
         else => {
             stderr.print("{s}: {s}\n", .{ command, coreutilz.utils.errors.errorDescription(err) }) catch {};
@@ -159,6 +165,16 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.shuf_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "tac")) {
         return try coreutilz.tac_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "split")) {
+        return try coreutilz.split_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "csplit")) {
+        return try coreutilz.csplit_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "tail")) {
+        return try coreutilz.tail_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "tr")) {
+        return try coreutilz.tr_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "fold")) {
+        return try coreutilz.fold_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -175,10 +191,11 @@ fn printUsage() void {
         \\   or: <command> [arguments...] (via symlink)
         \\
         \\Available commands:
-        \\  basename, cat, chmod, comm, cp, cut, dd, dir, dirname, echo, env, false,
-        \\  head, hostid, hostname, link, ln, logname, ls, mkdir, mv, nproc,
-        \\  paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort, stat,
-        \\  sync, tac, tee, touch, true, truncate, tty, uniq, unlink, vdir, wc, whoami, yes
+        \\  basename, cat, chmod, comm, cp, csplit, cut, dd, dir, dirname, echo, env,
+        \\  false, fold, head, hostid, hostname, link, ln, logname, ls, mkdir, mv,
+        \\  nproc, paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort,
+        \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
+        \\  unlink, vdir, wc, whoami, yes
         \\
     ) catch {};
     writer.interface.flush() catch {};

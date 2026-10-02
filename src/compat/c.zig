@@ -12,6 +12,7 @@ pub const c = @cImport({
     @cInclude("locale.h");
     @cInclude("poll.h");
     @cInclude("pwd.h");
+    @cInclude("regex.h");
     @cInclude("signal.h");
     @cInclude("stdio.h");
     @cInclude("stdlib.h");
@@ -21,6 +22,7 @@ pub const c = @cImport({
     @cInclude("sys/statvfs.h");
     @cInclude("sys/sysmacros.h");
     @cInclude("sys/types.h");
+    @cInclude("sys/wait.h");
     @cInclude("time.h");
     @cInclude("unistd.h");
     @cInclude("wchar.h");

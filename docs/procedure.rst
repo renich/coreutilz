@@ -43,7 +43,7 @@ Tests must be written and peer-reviewed **before** implementing the production c
 
      * Empty input, single-byte input, gigabyte input streams.
      * Write failures on ``/dev/full`` (verifying exact GNU exit status).
-     * Broken pipes (``SIGPIPE`` / ``EPIPE``).
+     * Broken pipes (``SIGPIPE``/``EPIPE``).
      * Dangling symlinks, symlink cycles, and recursive directory structures exceeding ``PATH_MAX``.
      * Missing, invalid, or mutually exclusive command-line options.
 

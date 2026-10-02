@@ -3,6 +3,8 @@ const errors = @import("errors.zig");
 const signals = @import("signals.zig");
 const args_mod = @import("args.zig");
 
+const c = @import("../compat/c.zig").c;
+
 /// Standard entrypoint runner for standalone command binaries.
 /// Restores Unix signals, parses CLI arguments, invokes the command run function,
 /// handles fatal runtime errors without panicking or dumping compiler traces,
@@ -40,7 +42,13 @@ fn handleError(command: []const u8, err: anyerror) void {
             stderr.print("{s}: write error: Broken pipe\n", .{command}) catch {};
         },
         error.WriteFailed, error.DiskFull, error.NoSpaceLeft => {
-            stderr.print("{s}: write error: {s}\n", .{ command, errors.errorDescription(err) }) catch {};
+            const errno_val = c.__errno_location().*;
+            if (errno_val != 0) {
+                const err_str = std.mem.span(c.strerror(errno_val));
+                stderr.print("{s}: write error: {s}\n", .{ command, err_str }) catch {};
+            } else {
+                stderr.print("{s}: write error: No space left on device\n", .{command}) catch {};
+            }
         },
         else => {
             stderr.print("{s}: {s}\n", .{ command, errors.errorDescription(err) }) catch {};

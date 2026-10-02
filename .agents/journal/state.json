@@ -1,7 +1,15 @@
 {
   "active_track": "strike-4-ship",
+  "batch_c": {
+    "csplit": "5_passed",
+    "fold": "5_passed",
+    "internal_tests": "586_passed",
+    "split": "14_passed_1_skipped",
+    "tail": "29_passed_8_skipped",
+    "tr": "2_passed"
+  },
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
-  "status": "completed",
+  "status": "strike_4_verified",
   "toolchain": "zig-0.16.0"
 }

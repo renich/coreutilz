@@ -138,9 +138,9 @@ run_test() {
     fi
 
     if [[ "${test_file}" == *.pl ]]; then
-        output="$(timeout --signal=KILL 30s perl -w -Itests -MCuSkip -MCoreutils -M"CuTmpdir qw(${rel_test})" "${rel_test}" 2>&1 9>&2)" || rc=$?
+        output="$(timeout --signal=KILL 30s perl -w -Itests -MCuSkip -MCoreutils -M"CuTmpdir qw(${rel_test})" "${rel_test}" </dev/null 2>&1 9>&2)" || rc=$?
     else
-        output="$(timeout --signal=KILL 30s bash "${rel_test}" 2>&1 9>&2)" || rc=$?
+        output="$(timeout --signal=KILL 30s bash "${rel_test}" </dev/null 2>&1 9>&2)" || rc=$?
     fi
     popd >/dev/null
 

@@ -8,3 +8,4 @@ Coreutilz Functional Specification Repository
 
    specs/directory-listing
    specs/text-sorting-grouping
+   specs/text-splitting-filtering

@@ -11,12 +11,13 @@ pub fn build(b: *std.Build) void {
     mod.link_libc = true;
 
     const commands = [_][]const u8{
-        "true",  "false",    "echo",   "cat",     "hostname", "logname",  "tty",  "whoami",
-        "nproc", "hostid",   "unlink", "dirname", "basename", "printenv", "pwd",  "readlink",
-        "mkdir", "rmdir",    "rm",     "link",    "yes",      "sleep",    "sync", "env",
-        "cp",    "mv",       "chmod",  "ln",      "stat",     "dd",       "head", "wc",
-        "tee",   "truncate", "touch",  "cut",     "paste",    "seq",      "ls",   "dir",
-        "vdir",  "sort",     "uniq",   "comm",    "shuf",     "tac",
+        "true",  "false",    "echo",   "cat",     "hostname", "logname",  "tty",   "whoami",
+        "nproc", "hostid",   "unlink", "dirname", "basename", "printenv", "pwd",   "readlink",
+        "mkdir", "rmdir",    "rm",     "link",    "yes",      "sleep",    "sync",  "env",
+        "cp",    "mv",       "chmod",  "ln",      "stat",     "dd",       "head",  "wc",
+        "tee",   "truncate", "touch",  "cut",     "paste",    "seq",      "ls",    "dir",
+        "vdir",  "sort",     "uniq",   "comm",    "shuf",     "tac",      "split", "csplit",
+        "tail",  "tr",       "fold",
     };
 
     const install_step = b.getInstallStep();

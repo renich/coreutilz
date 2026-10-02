@@ -60,7 +60,7 @@
 #endif
 
 #ifndef IO_BUFSIZE
-# define IO_BUFSIZE (128 * 1024)
+# define IO_BUFSIZE (256 * 1024)
 #endif
 
 static char const *decimal_absval_add_one(char *buf) {

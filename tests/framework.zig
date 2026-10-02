@@ -54,6 +54,15 @@ pub const TestContext = struct {
         return self.tmp_dir.dir.readFileAlloc(io, path, self.allocator, .limited(64 * 1024 * 1024));
     }
 
+    /// Check whether a file exists in the tmp dir.
+    pub fn fileExists(self: *TestContext, path: []const u8) !bool {
+        _ = self.tmp_dir.dir.statFile(io, path, .{}) catch |err| switch (err) {
+            error.FileNotFound => return false,
+            else => return err,
+        };
+        return true;
+    }
+
     /// Create a subdirectory inside the tmp dir.
     pub fn makeDir(self: *TestContext, path: []const u8) !void {
         try self.tmp_dir.dir.createDir(io, path, .default_dir);

@@ -49,6 +49,11 @@ pub const uniq_cmd = @import("commands/uniq.zig");
 pub const comm_cmd = @import("commands/comm.zig");
 pub const shuf_cmd = @import("commands/shuf.zig");
 pub const tac_cmd = @import("commands/tac.zig");
+pub const split_cmd = @import("commands/split.zig");
+pub const csplit_cmd = @import("commands/csplit.zig");
+pub const tail_cmd = @import("commands/tail.zig");
+pub const tr_cmd = @import("commands/tr.zig");
+pub const fold_cmd = @import("commands/fold.zig");
 
 // Utility modules
 pub const utils = struct {
@@ -59,3 +64,5 @@ pub const utils = struct {
     pub const runner = @import("utils/runner.zig");
     pub const signals = @import("utils/signals.zig");
 };
+
+pub const compat = @import("compat/c.zig");

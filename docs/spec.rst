@@ -93,7 +93,7 @@ Write Failure & Flush Guarantees
 
 To satisfy GNU coreutils write error requirements (such as writing to full disks or ``/dev/full``):
 - Every command flushes buffers before returning.
-- On write failure (``error.DiskFull`` / ``error.NoSpaceLeft`` / ``EIO``), standard error diagnostic is printed and the binary returns exit status 1 (or 125 for ``env``, 2 for ``printenv``, 3 for ``tty``).
+- On write failure (``error.DiskFull``/``error.NoSpaceLeft``/``EIO``), standard error diagnostic is printed and the binary returns exit status 1 (or 125 for ``env``, 2 for ``printenv``, 3 for ``tty``).
 
 Signal Handling & Broken Pipes
 ------------------------------
