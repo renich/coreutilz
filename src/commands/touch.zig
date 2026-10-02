@@ -107,6 +107,31 @@ fn parseDateRelative(str: []const u8, base_sec: i64) !std.os.linux.timespec {
         return .{ .sec = base_sec + offset, .nsec = 0 };
     }
 
+    if (std.mem.indexOf(u8, s, "today")) |today_idx| {
+        var now_ts: c.struct_timespec = undefined;
+        _ = c.clock_gettime(c.CLOCK_REALTIME, &now_ts);
+        if (c.localtime(&now_ts.tv_sec)) |cur_tm| {
+            var tm = cur_tm.*;
+            tm.tm_sec = 0;
+            const time_part = std.mem.trim(u8, s[0..today_idx], " \t");
+            if (time_part.len > 0) {
+                var colon_it = std.mem.splitScalar(u8, time_part, ':');
+                if (colon_it.next()) |h_str| {
+                    if (std.fmt.parseInt(c_int, h_str, 10)) |h| tm.tm_hour = h else |_| {}
+                }
+                if (colon_it.next()) |m_str| {
+                    if (std.fmt.parseInt(c_int, m_str, 10)) |m| tm.tm_min = m else |_| {}
+                }
+            }
+            const sec = c.mktime(&tm);
+            if (sec != -1) {
+                const after_today = std.mem.trim(u8, s[today_idx + 5 ..], " \t");
+                const offset: i64 = if (after_today.len > 0) (parseRelativeOffset(after_today) orelse 0) else 0;
+                return .{ .sec = sec + offset, .nsec = 0 };
+            }
+        }
+    }
+
     var str_buf: [128]u8 = undefined;
     if (s.len >= str_buf.len) return error.InvalidDateFormat;
     @memcpy(str_buf[0..s.len], s);

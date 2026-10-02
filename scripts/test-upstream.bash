@@ -150,6 +150,13 @@ find_tests_for_cmd() {
                 fi
             done
             ;;
+        factor)
+            for t in "${UPSTREAM_DIR}/tests/factor"/factor*.pl "${UPSTREAM_DIR}/tests/factor"/factor*.sh; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
         stdbuf)
             if [[ -x "/usr/bin/uniq" ]]; then
                 ln -sf "/usr/bin/uniq" "${UPSTREAM_DIR}/src/uniq"

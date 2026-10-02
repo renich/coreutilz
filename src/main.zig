@@ -72,195 +72,75 @@ fn handleDispatchError(command: []const u8, err: anyerror) void {
     stderr.flush() catch {};
 }
 
+const CmdEntry = struct {
+    name: []const u8,
+    run: *const fn ([][]const u8, std.mem.Allocator) anyerror!u8,
+};
+
+const COMMANDS = [_]CmdEntry{
+    .{ .name = "true", .run = coreutilz.true_cmd.run },           .{ .name = "false", .run = coreutilz.false_cmd.run },
+    .{ .name = "echo", .run = coreutilz.echo_cmd.run },           .{ .name = "cat", .run = coreutilz.cat_cmd.run },
+    .{ .name = "hostname", .run = coreutilz.hostname_cmd.run },   .{ .name = "logname", .run = coreutilz.logname_cmd.run },
+    .{ .name = "tty", .run = coreutilz.tty_cmd.run },             .{ .name = "whoami", .run = coreutilz.whoami_cmd.run },
+    .{ .name = "nproc", .run = coreutilz.nproc_cmd.run },         .{ .name = "hostid", .run = coreutilz.hostid_cmd.run },
+    .{ .name = "unlink", .run = coreutilz.unlink_cmd.run },       .{ .name = "dirname", .run = coreutilz.dirname_cmd.run },
+    .{ .name = "basename", .run = coreutilz.basename_cmd.run },   .{ .name = "printenv", .run = coreutilz.printenv_cmd.run },
+    .{ .name = "pwd", .run = coreutilz.pwd_cmd.run },             .{ .name = "readlink", .run = coreutilz.readlink_cmd.run },
+    .{ .name = "mkdir", .run = coreutilz.mkdir_cmd.run },         .{ .name = "rmdir", .run = coreutilz.rmdir_cmd.run },
+    .{ .name = "rm", .run = coreutilz.rm_cmd.run },               .{ .name = "link", .run = coreutilz.link_cmd.run },
+    .{ .name = "yes", .run = coreutilz.yes_cmd.run },             .{ .name = "sleep", .run = coreutilz.sleep_cmd.run },
+    .{ .name = "sync", .run = coreutilz.sync_cmd.run },           .{ .name = "env", .run = coreutilz.env_cmd.run },
+    .{ .name = "cp", .run = coreutilz.cp_cmd.run },               .{ .name = "mv", .run = coreutilz.mv_cmd.run },
+    .{ .name = "ls", .run = coreutilz.ls_cmd.run },               .{ .name = "dir", .run = coreutilz.dir_cmd.run },
+    .{ .name = "vdir", .run = coreutilz.vdir_cmd.run },           .{ .name = "chmod", .run = coreutilz.chmod_cmd.run },
+    .{ .name = "ln", .run = coreutilz.ln_cmd.run },               .{ .name = "mkfifo", .run = coreutilz.mkfifo_cmd.run },
+    .{ .name = "mknod", .run = coreutilz.mknod_cmd.run },         .{ .name = "chown", .run = coreutilz.chown_cmd.run },
+    .{ .name = "chgrp", .run = coreutilz.chgrp_cmd.run },         .{ .name = "df", .run = coreutilz.df_cmd.run },
+    .{ .name = "du", .run = coreutilz.du_cmd.run },               .{ .name = "stat", .run = coreutilz.stat_cmd.run },
+    .{ .name = "dd", .run = coreutilz.dd_cmd.run },               .{ .name = "head", .run = coreutilz.head_cmd.run },
+    .{ .name = "wc", .run = coreutilz.wc_cmd.run },               .{ .name = "tee", .run = coreutilz.tee_cmd.run },
+    .{ .name = "truncate", .run = coreutilz.truncate_cmd.run },   .{ .name = "touch", .run = coreutilz.touch_cmd.run },
+    .{ .name = "cut", .run = coreutilz.cut_cmd.run },             .{ .name = "paste", .run = coreutilz.paste_cmd.run },
+    .{ .name = "seq", .run = coreutilz.seq_cmd.run },             .{ .name = "sort", .run = coreutilz.sort_cmd.run },
+    .{ .name = "uniq", .run = coreutilz.uniq_cmd.run },           .{ .name = "comm", .run = coreutilz.comm_cmd.run },
+    .{ .name = "shuf", .run = coreutilz.shuf_cmd.run },           .{ .name = "tac", .run = coreutilz.tac_cmd.run },
+    .{ .name = "split", .run = coreutilz.split_cmd.run },         .{ .name = "csplit", .run = coreutilz.csplit_cmd.run },
+    .{ .name = "tail", .run = coreutilz.tail_cmd.run },           .{ .name = "tr", .run = coreutilz.tr_cmd.run },
+    .{ .name = "fold", .run = coreutilz.fold_cmd.run },           .{ .name = "cksum", .run = coreutilz.cksum_cmd.run },
+    .{ .name = "b2sum", .run = coreutilz.b2sum_cmd.run },         .{ .name = "md5sum", .run = coreutilz.md5sum_cmd.run },
+    .{ .name = "sha1sum", .run = coreutilz.sha1sum_cmd.run },     .{ .name = "sha224sum", .run = coreutilz.sha224sum_cmd.run },
+    .{ .name = "sha256sum", .run = coreutilz.sha256sum_cmd.run }, .{ .name = "sha384sum", .run = coreutilz.sha384sum_cmd.run },
+    .{ .name = "sha512sum", .run = coreutilz.sha512sum_cmd.run }, .{ .name = "base64", .run = coreutilz.base64_cmd.run },
+    .{ .name = "base32", .run = coreutilz.base32_cmd.run },       .{ .name = "basenc", .run = coreutilz.basenc_cmd.run },
+    .{ .name = "nl", .run = coreutilz.nl_cmd.run },               .{ .name = "fmt", .run = coreutilz.fmt_cmd.run },
+    .{ .name = "pr", .run = coreutilz.pr_cmd.run },               .{ .name = "expand", .run = coreutilz.expand_cmd.run },
+    .{ .name = "unexpand", .run = coreutilz.unexpand_cmd.run },   .{ .name = "od", .run = coreutilz.od_cmd.run },
+    .{ .name = "ptx", .run = coreutilz.ptx_cmd.run },             .{ .name = "numfmt", .run = coreutilz.numfmt_cmd.run },
+    .{ .name = "timeout", .run = coreutilz.timeout_cmd.run },     .{ .name = "nice", .run = coreutilz.nice_cmd.run },
+    .{ .name = "nohup", .run = coreutilz.nohup_cmd.run },         .{ .name = "stdbuf", .run = coreutilz.stdbuf_cmd.run },
+    .{ .name = "stty", .run = coreutilz.stty_cmd.run },           .{ .name = "date", .run = coreutilz.date_cmd.run },
+    .{ .name = "chroot", .run = coreutilz.chroot_cmd.run },       .{ .name = "id", .run = coreutilz.id_cmd.run },
+    .{ .name = "groups", .run = coreutilz.groups_cmd.run },       .{ .name = "who", .run = coreutilz.who_cmd.run },
+    .{ .name = "users", .run = coreutilz.users_cmd.run },         .{ .name = "pinky", .run = coreutilz.pinky_cmd.run },
+    .{ .name = "uname", .run = coreutilz.uname_cmd.run },         .{ .name = "arch", .run = coreutilz.arch_cmd.run },
+    .{ .name = "chcon", .run = coreutilz.chcon_cmd.run },         .{ .name = "runcon", .run = coreutilz.runcon_cmd.run },
+    .{ .name = "pathchk", .run = coreutilz.pathchk_cmd.run },     .{ .name = "realpath", .run = coreutilz.realpath_cmd.run },
+    .{ .name = "mktemp", .run = coreutilz.mktemp_cmd.run },       .{ .name = "tsort", .run = coreutilz.tsort_cmd.run },
+    .{ .name = "factor", .run = coreutilz.factor_cmd.run },       .{ .name = "dircolors", .run = coreutilz.dircolors_cmd.run },
+    .{ .name = "test", .run = coreutilz.test_cmd.run },           .{ .name = "[", .run = coreutilz.test_cmd.run },
+    .{ .name = "expr", .run = coreutilz.expr_cmd.run },           .{ .name = "printf", .run = coreutilz.printf_cmd.run },
+    .{ .name = "join", .run = coreutilz.join_cmd.run },           .{ .name = "shred", .run = coreutilz.shred_cmd.run },
+    .{ .name = "install", .run = coreutilz.install_cmd.run },
+};
+
 fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocator) !u8 {
-    if (std.mem.eql(u8, command, "true")) {
-        return try coreutilz.true_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "false")) {
-        return try coreutilz.false_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "echo")) {
-        return try coreutilz.echo_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "cat")) {
-        return try coreutilz.cat_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "hostname")) {
-        return try coreutilz.hostname_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "logname")) {
-        return try coreutilz.logname_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "tty")) {
-        return try coreutilz.tty_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "whoami")) {
-        return try coreutilz.whoami_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "nproc")) {
-        return try coreutilz.nproc_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "hostid")) {
-        return try coreutilz.hostid_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "unlink")) {
-        return try coreutilz.unlink_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "dirname")) {
-        return try coreutilz.dirname_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "basename")) {
-        return try coreutilz.basename_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "printenv")) {
-        return try coreutilz.printenv_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "pwd")) {
-        return try coreutilz.pwd_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "readlink")) {
-        return try coreutilz.readlink_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "mkdir")) {
-        return try coreutilz.mkdir_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "rmdir")) {
-        return try coreutilz.rmdir_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "rm")) {
-        return try coreutilz.rm_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "link")) {
-        return try coreutilz.link_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "yes")) {
-        return try coreutilz.yes_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sleep")) {
-        return try coreutilz.sleep_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sync")) {
-        return try coreutilz.sync_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "env")) {
-        return try coreutilz.env_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "cp")) {
-        return try coreutilz.cp_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "mv")) {
-        return try coreutilz.mv_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "chmod")) {
-        return try coreutilz.chmod_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "ln")) {
-        return try coreutilz.ln_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "stat")) {
-        return try coreutilz.stat_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "dd")) {
-        return try coreutilz.dd_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "head")) {
-        return try coreutilz.head_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "wc")) {
-        return try coreutilz.wc_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "tee")) {
-        return try coreutilz.tee_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "truncate")) {
-        return try coreutilz.truncate_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "touch")) {
-        return try coreutilz.touch_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "cut")) {
-        return try coreutilz.cut_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "paste")) {
-        return try coreutilz.paste_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "seq")) {
-        return try coreutilz.seq_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "ls")) {
-        return try coreutilz.ls_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "dir")) {
-        return try coreutilz.dir_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "vdir")) {
-        return try coreutilz.vdir_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sort")) {
-        return try coreutilz.sort_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "uniq")) {
-        return try coreutilz.uniq_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "comm")) {
-        return try coreutilz.comm_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "shuf")) {
-        return try coreutilz.shuf_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "tac")) {
-        return try coreutilz.tac_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "split")) {
-        return try coreutilz.split_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "csplit")) {
-        return try coreutilz.csplit_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "tail")) {
-        return try coreutilz.tail_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "tr")) {
-        return try coreutilz.tr_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "fold")) {
-        return try coreutilz.fold_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "mkfifo")) {
-        return try coreutilz.mkfifo_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "mknod")) {
-        return try coreutilz.mknod_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "chown")) {
-        return try coreutilz.chown_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "chgrp")) {
-        return try coreutilz.chgrp_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "df")) {
-        return try coreutilz.df_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "du")) {
-        return try coreutilz.du_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "cksum")) {
-        return try coreutilz.cksum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "b2sum")) {
-        return try coreutilz.b2sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "md5sum")) {
-        return try coreutilz.md5sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sha1sum")) {
-        return try coreutilz.sha1sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sha224sum")) {
-        return try coreutilz.sha224sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sha256sum")) {
-        return try coreutilz.sha256sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sha384sum")) {
-        return try coreutilz.sha384sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "sha512sum")) {
-        return try coreutilz.sha512sum_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "base64")) {
-        return try coreutilz.base64_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "base32")) {
-        return try coreutilz.base32_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "basenc")) {
-        return try coreutilz.basenc_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "nl")) {
-        return try coreutilz.nl_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "fmt")) {
-        return try coreutilz.fmt_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "pr")) {
-        return try coreutilz.pr_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "expand")) {
-        return try coreutilz.expand_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "unexpand")) {
-        return try coreutilz.unexpand_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "od")) {
-        return try coreutilz.od_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "ptx")) {
-        return try coreutilz.ptx_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "numfmt")) {
-        return try coreutilz.numfmt_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "timeout")) {
-        return try coreutilz.timeout_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "nice")) {
-        return try coreutilz.nice_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "nohup")) {
-        return try coreutilz.nohup_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "stdbuf")) {
-        return try coreutilz.stdbuf_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "stty")) {
-        return try coreutilz.stty_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "date")) {
-        return try coreutilz.date_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "chroot")) {
-        return try coreutilz.chroot_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "id")) {
-        return try coreutilz.id_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "groups")) {
-        return try coreutilz.groups_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "who")) {
-        return try coreutilz.who_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "users")) {
-        return try coreutilz.users_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "pinky")) {
-        return try coreutilz.pinky_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "uname")) {
-        return try coreutilz.uname_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "arch")) {
-        return try coreutilz.arch_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "chcon")) {
-        return try coreutilz.chcon_cmd.run(args, allocator);
-    } else if (std.mem.eql(u8, command, "runcon")) {
-        return try coreutilz.runcon_cmd.run(args, allocator);
-    } else {
-        std.debug.print("{s}: unknown command\n", .{command});
-        return 1;
+    for (COMMANDS) |cmd| {
+        if (std.mem.eql(u8, command, cmd.name)) {
+            return try cmd.run(args, allocator);
+        }
     }
+    std.debug.print("{s}: unknown command\n", .{command});
+    return 1;
 }
 
 fn printUsage() void {
@@ -272,16 +152,7 @@ fn printUsage() void {
         \\Usage: coreutilz <command> [arguments...]
         \\   or: <command> [arguments...] (via symlink)
         \\
-        \\Available commands:
-        \\  basename, cat, chmod, comm, cp, csplit, cut, dd, dir, dirname, echo, env,
-        \\  false, fold, head, hostid, hostname, link, ln, logname, ls, mkdir, mv,
-        \\  nproc, paste, printenv, pwd, readlink, rm, rmdir, seq, shuf, sleep, sort,
-        \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
-        \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du,
-        \\  cksum, b2sum, md5sum, sha1sum, sha224sum, sha256sum, sha384sum, sha512sum,
-        \\  base64, base32, basenc, nl, fmt, pr, expand, unexpand, od, ptx, numfmt,
-        \\  timeout, nice, nohup, stdbuf, stty, date, chroot, id, groups, who,
-        \\  users, pinky, uname, arch, chcon, runcon
+        \\All 106 GNU Coreutils commands supported.
         \\
     ) catch {};
 

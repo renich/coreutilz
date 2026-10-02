@@ -32,3 +32,18 @@ test "pinky -l root" {
     try testing.expectEqual(@as(u8, 0), res.exit_code);
     try testing.expect(std.mem.containsAtLeast(u8, res.stdout, 1, "Login name: root"));
 }
+
+test "pinky invalid option diagnostics" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const bin = try getBinaryPath(allocator, "pinky");
+    defer allocator.free(bin);
+
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "--invalid-option" }, null);
+    defer res.deinit();
+
+    try testing.expectEqual(@as(u8, 1), res.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res.stderr, 1, "unrecognized option '--invalid-option'"));
+}

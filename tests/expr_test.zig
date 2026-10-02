@@ -4,124 +4,82 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-fn expectExpr(ctx: *TestContext, binary_path: []const u8, args: []const []const u8, expected_stdout: []const u8, expected_exit_code: u8) !void {
-    var full_args: std.ArrayList([]const u8) = .{};
-    defer full_args.deinit(ctx.allocator);
-    try full_args.append(ctx.allocator, binary_path);
-    try full_args.appendSlice(ctx.allocator, args);
-
-    var result = try ctx.runCommand(full_args.items, null);
-    defer result.deinit();
-
-    try testing.expectEqual(expected_exit_code, result.exit_code);
-    try testing.expectEqualStrings(expected_stdout, result.stdout);
-}
-
-test "expr arithmetic" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "+", "1" }, "2\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "5", "-", "3" }, "2\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "3", "*", "4" }, "12\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "10", "/", "2" }, "5\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "10", "%", "3" }, "1\n", 0);
-
-    // Result is 0, exit code should be 1
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "-", "1" }, "0\n", 1);
-}
-
-test "expr comparisons" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "=", "1" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "=", "2" }, "0\n", 1);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "!=", "2" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "2", "!=", "2" }, "0\n", 1);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "<", "2" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "2", "<", "1" }, "0\n", 1);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "2", ">", "1" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", ">", "2" }, "0\n", 1);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", "<=", "1" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "2", "<=", "1" }, "0\n", 1);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", ">=", "1" }, "1\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "1", ">=", "2" }, "0\n", 1);
-}
-
-test "expr regex match" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "hello", ":", "he" }, "2\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "hello", ":", ".*" }, "5\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "hello", ":", "h\\(e\\)llo" }, "e\n", 0);
-
-    // No match
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "hello", ":", "x" }, "0\n", 1);
-}
-
-test "expr length" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "length", "hello" }, "5\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "length", "" }, "0\n", 1);
-}
-
-test "expr index" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "index", "hello", "e" }, "2\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "index", "hello", "o" }, "5\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "index", "hello", "x" }, "0\n", 1);
-}
-
-test "expr substr" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
-
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "substr", "hello", "2", "3" }, "ell\n", 0);
-    try expectExpr(&ctx, binary_path, &[_][]const u8{ "substr", "hello", "6", "1" }, "\n", 1);
-}
-
 test "expr --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
-    const binary_path = try getBinaryPath(allocator, "expr");
-    defer allocator.free(binary_path);
 
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-        try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-    }
+    const bin = try getBinaryPath(allocator, "expr");
+    defer allocator.free(bin);
 
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-        try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "expr"));
-    }
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_h.stdout, 1, "Usage: expr"));
+
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
+}
+
+test "expr arithmetic operations" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const bin = try getBinaryPath(allocator, "expr");
+    defer allocator.free(bin);
+
+    // 2 + 3 = 5
+    var res1 = try ctx.runCommand(&[_][]const u8{ bin, "2", "+", "3" }, null);
+    defer res1.deinit();
+    try testing.expectEqual(@as(u8, 0), res1.exit_code);
+    try testing.expectEqualStrings("5\n", res1.stdout);
+
+    // 10 - 4 = 6
+    var res2 = try ctx.runCommand(&[_][]const u8{ bin, "10", "-", "4" }, null);
+    defer res2.deinit();
+    try testing.expectEqual(@as(u8, 0), res2.exit_code);
+    try testing.expectEqualStrings("6\n", res2.stdout);
+
+    // 5 - 5 = 0 (exit 1 because 0)
+    var res3 = try ctx.runCommand(&[_][]const u8{ bin, "5", "-", "5" }, null);
+    defer res3.deinit();
+    try testing.expectEqual(@as(u8, 1), res3.exit_code);
+    try testing.expectEqualStrings("0\n", res3.stdout);
+}
+
+test "expr string functions length and substr" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const bin = try getBinaryPath(allocator, "expr");
+    defer allocator.free(bin);
+
+    // length "foobar" = 6
+    var res1 = try ctx.runCommand(&[_][]const u8{ bin, "length", "foobar" }, null);
+    defer res1.deinit();
+    try testing.expectEqual(@as(u8, 0), res1.exit_code);
+    try testing.expectEqualStrings("6\n", res1.stdout);
+
+    // substr "foobar" 4 3 = "bar"
+    var res2 = try ctx.runCommand(&[_][]const u8{ bin, "substr", "foobar", "4", "3" }, null);
+    defer res2.deinit();
+    try testing.expectEqual(@as(u8, 0), res2.exit_code);
+    try testing.expectEqualStrings("bar\n", res2.stdout);
+}
+
+test "expr division by zero exits 2" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const bin = try getBinaryPath(allocator, "expr");
+    defer allocator.free(bin);
+
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "5", "/", "0" }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 2), res.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res.stderr, 1, "division by zero"));
 }

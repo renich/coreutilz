@@ -107,3 +107,34 @@ test "runcon -r role (SELinux only)" {
     var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-r", "unconfined_r", "id" }, null);
     defer result.deinit();
 }
+
+test "runcon unrecognized option" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "runcon");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--invalid-flag" }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 125), result.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "unrecognized option '--invalid-flag'"));
+}
+
+test "runcon --role= (SELinux only)" {
+    if (!hasSELinux()) return error.SkipZigTest;
+
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "runcon");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--role=unconfined_r", "true" }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 0), result.exit_code);
+}

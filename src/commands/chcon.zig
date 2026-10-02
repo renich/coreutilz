@@ -46,10 +46,13 @@ fn setFileContext(path: []const u8, ctx: []const u8, deref: bool) !void {
 
 fn mergeContext(existing: []const u8, opts: *const ChconOptions, out: *[512]u8) ?[]const u8 {
     var it = std.mem.splitScalar(u8, existing, ':');
-    const u = opts.user orelse (it.next() orelse return null);
-    const r = opts.role orelse (it.next() orelse return null);
-    const t = opts.type_name orelse (it.next() orelse return null);
+    const orig_u = it.next() orelse return null;
+    const orig_r = it.next() orelse return null;
+    const orig_t = it.next() orelse return null;
     const rest = it.rest();
+    const u = opts.user orelse orig_u;
+    const r = opts.role orelse orig_r;
+    const t = opts.type_name orelse orig_t;
     const l = opts.range orelse if (rest.len > 0) rest else "s0";
     return std.fmt.bufPrint(out, "{s}:{s}:{s}:{s}", .{ u, r, t, l }) catch null;
 }
@@ -111,6 +114,27 @@ fn parseFlag(arg: []const u8, opts: *ChconOptions) bool {
     return true;
 }
 
+fn parseContextOpt(arg: []const u8, i: *usize, args: [][]const u8, opts: *ChconOptions) bool {
+    if (std.mem.startsWith(u8, arg, "-u")) {
+        opts.user = parseComponent(arg, i, args);
+    } else if (std.mem.startsWith(u8, arg, "--user=")) {
+        opts.user = arg["--user=".len..];
+    } else if (std.mem.startsWith(u8, arg, "-r")) {
+        opts.role = parseComponent(arg, i, args);
+    } else if (std.mem.startsWith(u8, arg, "--role=")) {
+        opts.role = arg["--role=".len..];
+    } else if (std.mem.startsWith(u8, arg, "-t")) {
+        opts.type_name = parseComponent(arg, i, args);
+    } else if (std.mem.startsWith(u8, arg, "--type=")) {
+        opts.type_name = arg["--type=".len..];
+    } else if (std.mem.startsWith(u8, arg, "-l")) {
+        opts.range = parseComponent(arg, i, args);
+    } else if (std.mem.startsWith(u8, arg, "--range=")) {
+        opts.range = arg["--range=".len..];
+    } else return false;
+    return true;
+}
+
 fn parseOptions(args: [][]const u8, opts: *ChconOptions, files: *std.ArrayListUnmanaged([]const u8), ctx_arg: *?[]const u8, stdout: anytype, stderr: anytype, alloc: std.mem.Allocator) !?u8 {
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
@@ -121,18 +145,16 @@ fn parseOptions(args: [][]const u8, opts: *ChconOptions, files: *std.ArrayListUn
         } else if (std.mem.eql(u8, arg, "--version")) {
             try stdout.print("chcon (coreutilz) {s}\n", .{version});
             return 0;
-        } else if (parseFlag(arg, opts)) {
+        } else if (parseFlag(arg, opts) or parseContextOpt(arg, &i, args, opts)) {
             continue;
-        } else if (std.mem.startsWith(u8, arg, "-u")) {
-            opts.user = parseComponent(arg, &i, args);
-        } else if (std.mem.startsWith(u8, arg, "-r")) {
-            opts.role = parseComponent(arg, &i, args);
-        } else if (std.mem.startsWith(u8, arg, "-t")) {
-            opts.type_name = parseComponent(arg, &i, args);
-        } else if (std.mem.startsWith(u8, arg, "-l")) {
-            opts.range = parseComponent(arg, &i, args);
         } else if (std.mem.startsWith(u8, arg, "--reference=")) {
             opts.reference = arg["--reference=".len..];
+        } else if (std.mem.eql(u8, arg, "--reference")) {
+            i += 1;
+            if (i < args.len) opts.reference = args[i] else {
+                try stderr.print("chcon: option '--reference' requires an argument\nTry 'chcon --help' for more information.\n", .{});
+                return 1;
+            }
         } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
             try stderr.print("chcon: unrecognized option '{s}'\nTry 'chcon --help' for more information.\n", .{arg});
             return 1;

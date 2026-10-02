@@ -9,6 +9,7 @@ pub const c = @cImport({
     @cInclude("fnmatch.h");
     @cInclude("getopt.h");
     @cInclude("grp.h");
+    @cInclude("inttypes.h");
     @cInclude("langinfo.h");
     @cInclude("locale.h");
     @cInclude("mntent.h");

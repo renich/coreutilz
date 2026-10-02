@@ -1,5 +1,5 @@
 {
-  "active_track": "phase5_batch_i",
+  "active_track": "phase6",
   "batch_c": {
     "csplit": "5_passed",
     "fold": "5_passed",
@@ -40,6 +40,12 @@
     "container": "950_passed",
     "status": "completed",
     "upstream": "10_passed_5_skipped"
+  },
+  "batch_i": {
+    "container": "1080_passed",
+    "internal_tests": "429_passed",
+    "status": "completed",
+    "upstream": "34_passed_2_skipped"
   },
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",

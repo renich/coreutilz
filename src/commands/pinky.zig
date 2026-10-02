@@ -15,7 +15,7 @@ const PinkyOptions = struct {
     omit_idle: bool = false,
 };
 
-fn parseOptions(args: [][]const u8, opts: *PinkyOptions, users: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, stdout: anytype) !?u8 {
+fn parseOptions(args: [][]const u8, opts: *PinkyOptions, users: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, stdout: anytype, stderr: anytype) !?u8 {
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
@@ -27,6 +27,9 @@ fn parseOptions(args: [][]const u8, opts: *PinkyOptions, users: *std.ArrayListUn
             return 0;
         } else if (std.mem.eql(u8, arg, "--lookup")) {
             continue;
+        } else if (std.mem.startsWith(u8, arg, "--")) {
+            try stderr.print("pinky: unrecognized option '{s}'\nTry 'pinky --help' for more information.\n", .{arg});
+            return 1;
         } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
             for (arg[1..]) |ch| switch (ch) {
                 'l' => opts.long_format = true,
@@ -45,7 +48,10 @@ fn parseOptions(args: [][]const u8, opts: *PinkyOptions, users: *std.ArrayListUn
                     opts.omit_where = true;
                     opts.omit_idle = true;
                 },
-                else => return 1,
+                else => {
+                    try stderr.print("pinky: invalid option -- '{c}'\nTry 'pinky --help' for more information.\n", .{ch});
+                    return 1;
+                },
             };
         } else {
             try users.append(alloc, arg);
@@ -212,15 +218,19 @@ fn printShortSessions(opts: *const PinkyOptions, users: []const []const u8, stdo
 
 pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var stdout_buf: [4096]u8 = undefined;
+    var stderr_buf: [4096]u8 = undefined;
     var out_w = std.Io.File.Writer.initStreaming(.stdout(), std.Options.debug_io, &stdout_buf);
+    var err_w = std.Io.File.Writer.initStreaming(.stderr(), std.Options.debug_io, &stderr_buf);
     const stdout = &out_w.interface;
+    const stderr = &err_w.interface;
 
     var opts = PinkyOptions{};
     var users: std.ArrayListUnmanaged([]const u8) = .empty;
     defer users.deinit(allocator);
 
-    if (try parseOptions(args, &opts, &users, allocator, stdout)) |rc| {
+    if (try parseOptions(args, &opts, &users, allocator, stdout, stderr)) |rc| {
         stdout.flush() catch return 1;
+        stderr.flush() catch {};
         return rc;
     }
 

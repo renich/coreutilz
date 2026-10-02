@@ -13,6 +13,19 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 Added
 -----
 
+* Added Phase 5 Batch I advanced shell, relational, and math utilities: ``test`` / ``[``, ``expr``, ``factor``, ``printf``, ``join``, ``tsort``, ``shred``, ``mktemp``, ``realpath``, ``pathchk``, ``install``, and ``dircolors`` in Zig 0.16.0 achieving 100% behavioral parity across upstream GNU Coreutils test harness (34 passed, 2 skipped, 0 failed), internal test suites (429/429 steps passing with 0 leaks), 1080/1080 deterministic container permutations, and static analysis linting gates.
+* Complete ``test`` and ``[`` expression evaluation utilities supporting POSIX 1-to-4 argument grammars, unary file and string tests, binary comparisons, algebraic comparisons, and exit code 2 write error parity on ``/dev/full``.
+* Complete ``expr`` arbitrary-precision expression evaluator supporting arithmetic, comparison, logical, substring, and pattern operations with exit code 3 on write errors.
+* Complete ``factor`` prime factorizer with Pollard's rho, trial division, Miller-Rabin primality testing, atomic line buffer output, and multi-process pipeline safety.
+* Complete ``printf`` formatted output utility with format specifier validation, POSIX escape conversions, octal/hex conversions, shell escaping (``%q``), and variable argument recycling.
+* Complete ``join`` relational database joiner supporting arbitrary field delimiters, custom join fields, unpairable line emission (``-a``, ``-v``), empty field fillers (``-e``), and zero-terminated mode (``-z``).
+* Complete ``tsort`` topological sorter resolving directed acyclic graphs and reporting cycles to stderr while emitting legal orderings.
+* Complete ``shred`` secure file wiper supporting multi-pass pseudo-random overwriting, pattern cycling, exact size truncation (``-x``), zeroing passes (``-z``), and atomic unlink removal (``-u``).
+* Complete ``mktemp`` secure temporary file/directory provisioning with template validation, prefix/suffix handling, and atomic open creation.
+* Complete ``realpath`` path canonicalization utility supporting symlink resolution, missing path handling (``-m``, ``-e``), logical canonicalization (``-s``), relative path resolution (``--relative-to``, ``--relative-base``), and zero termination (``-z``).
+* Complete ``pathchk`` path validity and portability checker validating filename length, path length, and POSIX portable character set adherence (``-p``, ``-P``).
+* Complete ``install`` file installation utility supporting permission/mode setting (``-m``), owner/group assignment (``-o``, ``-g``), directory creation (``-d``), strip execution (``-s``), backup versions (``-b``), and SELinux context preservation (``-Z``).
+* Complete ``dircolors`` LS_COLORS setup generator parsing internal database and external configuration files, supporting Bourne and C shell syntax, and terminal matching.
 * Added Phase 5 Batch H identity, security, and environment utilities: ``id``, ``groups``, ``who``, ``users``, ``pinky``, ``uname``, ``arch``, ``chcon``, and ``runcon`` in Zig 0.16.0 achieving 100% behavioral parity across upstream GNU Coreutils test harness (10 passed, 5 skipped, 0 failed), internal test suites (377/377 steps passing with 0 leaks), 950/950 deterministic container permutations, and static analysis linting gates.
 * Complete ``id`` utility with real/effective UID/GID resolution, multi-user operands, option mutual exclusion (-u, -g, -G, -Z), name lookup (-n), real identity (-r), zero-delimited entries (-z), double-NUL record delimiters for multi-user group lists, POSIXLY_CORRECT compliance, and kernel security context retrieval via ``/proc/self/attr/current``.
 * Complete ``groups`` utility reporting primary and supplementary group names/IDs for the calling process and arbitrary specified users with colon-separated record formatting and ``--`` option terminator handling.

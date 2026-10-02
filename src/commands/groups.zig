@@ -59,7 +59,7 @@ fn printUserGroups(un: []const u8, stdout: anytype, stderr: anytype, allocator: 
     return true;
 }
 
-fn parseArgs(args: [][]const u8, users: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, stdout: anytype) !?u8 {
+fn parseArgs(args: [][]const u8, users: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, stdout: anytype, stderr: anytype) !?u8 {
     var options_done = false;
     for (args[1..]) |arg| {
         if (!options_done and std.mem.eql(u8, arg, "--")) {
@@ -72,6 +72,13 @@ fn parseArgs(args: [][]const u8, users: *std.ArrayListUnmanaged([]const u8), all
         } else if (!options_done and std.mem.eql(u8, arg, "--version")) {
             try stdout.print("groups (coreutilz) {s}\n", .{version});
             return 0;
+        } else if (!options_done and std.mem.startsWith(u8, arg, "-") and !std.mem.eql(u8, arg, "-")) {
+            if (std.mem.startsWith(u8, arg, "--")) {
+                try stderr.print("groups: unrecognized option '{s}'\nTry 'groups --help' for more information.\n", .{arg});
+            } else {
+                try stderr.print("groups: invalid option -- '{c}'\nTry 'groups --help' for more information.\n", .{arg[1]});
+            }
+            return 1;
         } else {
             try users.append(alloc, arg);
         }
@@ -90,8 +97,9 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var users: std.ArrayListUnmanaged([]const u8) = .empty;
     defer users.deinit(allocator);
 
-    if (try parseArgs(args, &users, allocator, stdout)) |rc| {
+    if (try parseArgs(args, &users, allocator, stdout, stderr)) |rc| {
         stdout.flush() catch return 1;
+        stderr.flush() catch {};
         return rc;
     }
 

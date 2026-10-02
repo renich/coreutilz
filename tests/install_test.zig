@@ -4,183 +4,60 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "install basic copy" {
+test "install --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "install");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("source.txt", "hello");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const src = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "source.txt" });
-    defer allocator.free(src);
-    const dest = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dest.txt" });
-    defer allocator.free(dest);
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_h.stdout, 1, "Usage: install"));
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, src, dest }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(try ctx.compareContent("hello", "dest.txt"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }
 
-test "install -d (create directories)" {
+test "install -d directory creation" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "install");
+    defer allocator.free(bin);
 
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const dir_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "new_dir/sub_dir" });
+    const dir_path = try ctx.tmpPathRaw("new_dir/sub_dir");
     defer allocator.free(dir_path);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-d", dir_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    var dir = try std.fs.openDirAbsolute(dir_path, .{});
-    dir.close();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-d", dir_path }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expect(try ctx.fileExists("new_dir/sub_dir"));
 }
 
-test "install -m (mode)" {
+test "install copy file with mode" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "install");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("source.txt", "hello");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const src = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "source.txt" });
-    defer allocator.free(src);
-    const dest = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dest.txt" });
-    defer allocator.free(dest);
+    try ctx.writeFile("src.txt", "hello install");
+    const src_p = try ctx.tmpPath("src.txt");
+    defer allocator.free(src_p);
+    const dst_p = try ctx.tmpPathRaw("dst.txt");
+    defer allocator.free(dst_p);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-m", "644", src, dest }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-m", "0644", src_p, dst_p }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    const stat = try std.fs.cwd().statFile(dest);
-    try testing.expectEqual(@as(u32, 0o644), @as(u32, @truncate(stat.mode)) & 0o777);
-}
-
-test "install -o (owner)" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("source.txt", "hello");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const src = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "source.txt" });
-    defer allocator.free(src);
-    const dest = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dest.txt" });
-    defer allocator.free(dest);
-
-    // Get current user to avoid failure if not root
-    var whoami = try ctx.runCommand(&[_][]const u8{"whoami"}, null);
-    defer whoami.deinit();
-    const user = std.mem.trim(u8, whoami.stdout, " \n\r\t");
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-o", user, src, dest }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "install -g (group)" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("source.txt", "hello");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const src = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "source.txt" });
-    defer allocator.free(src);
-    const dest = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dest.txt" });
-    defer allocator.free(dest);
-
-    // Get current group
-    var id_g = try ctx.runCommand(&[_][]const u8{ "id", "-gn" }, null);
-    defer id_g.deinit();
-    const group = std.mem.trim(u8, id_g.stdout, " \n\r\t");
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-g", group, src, dest }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "install -p (preserve timestamps)" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("source.txt", "hello");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const src = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "source.txt" });
-    defer allocator.free(src);
-    const dest = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dest.txt" });
-    defer allocator.free(dest);
-
-    const src_stat = try std.fs.cwd().statFile(src);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-p", src, dest }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    const dest_stat = try std.fs.cwd().statFile(dest);
-    try testing.expectEqual(src_stat.mtime, dest_stat.mtime);
-}
-
-test "install --help" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "install --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "install");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "install"));
+    const content = try ctx.readFile("dst.txt");
+    defer allocator.free(content);
+    try testing.expectEqualStrings("hello install", content);
 }

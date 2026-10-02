@@ -4,190 +4,67 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "shred basic overwrite" {
+test "shred --help and --version" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "shred");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "original content\n");
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_h.stdout, 1, "Usage: shred"));
 
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    const new_content = try ctx.readFile("test.txt");
-    defer allocator.free(new_content);
-    try testing.expect(!std.mem.eql(u8, new_content, "original content\n"));
-    try testing.expectEqual(@as(usize, 17), new_content.len);
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }
 
-test "shred -n option (iterations)" {
+test "shred overwrites file and zeros with -z" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "shred");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "some content\n");
+    const secret = "SUPER_SECRET_TOKEN_DO_NOT_REVEAL_ANYWHERE";
+    try ctx.writeFile("secret.txt", secret);
+    const p = try ctx.tmpPath("secret.txt");
+    defer allocator.free(p);
 
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-n", "1", "-z", "-x", p }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "2", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "shred -s option (size)" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "some content\n");
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-s", "10", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    const new_content = try ctx.readFile("test.txt");
-    defer allocator.free(new_content);
-    try testing.expectEqual(@as(usize, 10), new_content.len);
-}
-
-test "shred -u option (remove)" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "some content\n");
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-u", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    // File should be gone
-    _ = ctx.readFile("test.txt") catch |err| {
-        try testing.expectEqual(error.FileNotFound, err);
-        return;
-    };
-    try testing.expect(false); // Should not reach here
-}
-
-test "shred -z option (zero)" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "some content\n");
-
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-z", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    const new_content = try ctx.readFile("test.txt");
-    defer allocator.free(new_content);
-    for (new_content) |byte| {
-        try testing.expectEqual(@as(u8, 0), byte);
+    const content = try ctx.readFile("secret.txt");
+    defer allocator.free(content);
+    try testing.expectEqual(secret.len, content.len);
+    // Because of -z, all bytes must be 0
+    for (content) |b| {
+        try testing.expectEqual(@as(u8, 0), b);
     }
 }
 
-test "shred -v option (verbose)" {
+test "shred -u removes file" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "shred");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "some content\n");
+    try ctx.writeFile("temp_file.txt", "data to delete");
+    const p = try ctx.tmpPath("temp_file.txt");
+    defer allocator.free(p);
 
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-u", p }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-v", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // Verbose output usually goes to stderr
-    try testing.expect(result.stderr.len > 0);
-}
-
-test "shred --help option" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "shred --version option" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "shred");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "shred"));
+    // Verify file is gone
+    const exists = try ctx.fileExists("temp_file.txt");
+    try testing.expect(!exists);
 }

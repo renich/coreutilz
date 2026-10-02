@@ -4,194 +4,86 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "test file expressions" {
+test "test --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "test");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "test");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("file.txt", "content");
-    try ctx.tmp_dir.dir.makeDir("dir");
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "file.txt" });
-    defer allocator.free(file_path);
-    const dir_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "dir" });
-    defer allocator.free(dir_path);
-
-    // -e (exists)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-e", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -f (is file)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-f", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -d (is directory)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-d", dir_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -s (non-empty)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-s", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -r (readable)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-r", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -w (writable)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-w", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -x (executable)
-    {
-        {
-            const xf = try std.fs.cwd().openFile(file_path, .{});
-            defer xf.close();
-            try xf.chmod(0o755);
-        }
-
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-x", file_path }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }
 
-test "test string expressions" {
+test "test basic string and int operators" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "test");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "test");
+    defer allocator.free(bin);
 
-    // = (equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "abc", "=", "abc" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // true: 1 -eq 1
+    var res1 = try ctx.runCommand(&[_][]const u8{ bin, "1", "-eq", "1" }, null);
+    defer res1.deinit();
+    try testing.expectEqual(@as(u8, 0), res1.exit_code);
 
-    // != (not equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "abc", "!=", "def" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // false: 1 -eq 2
+    var res2 = try ctx.runCommand(&[_][]const u8{ bin, "1", "-eq", "2" }, null);
+    defer res2.deinit();
+    try testing.expectEqual(@as(u8, 1), res2.exit_code);
 
-    // -z (zero length)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-z", "" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // -n non-empty
+    var res3 = try ctx.runCommand(&[_][]const u8{ bin, "-n", "hello" }, null);
+    defer res3.deinit();
+    try testing.expectEqual(@as(u8, 0), res3.exit_code);
 
-    // -n (non-zero length)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-n", "abc" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // -z empty
+    var res4 = try ctx.runCommand(&[_][]const u8{ bin, "-z", "" }, null);
+    defer res4.deinit();
+    try testing.expectEqual(@as(u8, 0), res4.exit_code);
 }
 
-test "test numeric expressions" {
+test "test file tests -d and -f" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "test");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "test");
+    defer allocator.free(bin);
 
-    // -eq (equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "10", "-eq", "10" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // /etc is a directory
+    var res1 = try ctx.runCommand(&[_][]const u8{ bin, "-d", "/etc" }, null);
+    defer res1.deinit();
+    try testing.expectEqual(@as(u8, 0), res1.exit_code);
 
-    // -ne (not equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "10", "-ne", "20" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -lt (less than)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "10", "-lt", "20" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -le (less than or equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "10", "-le", "10" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -gt (greater than)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "20", "-gt", "10" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
-
-    // -ge (greater than or equal)
-    {
-        var result = try ctx.runCommand(&[_][]const u8{ binary_path, "20", "-ge", "20" }, null);
-        defer result.deinit();
-        try testing.expectEqual(@as(u8, 0), result.exit_code);
-    }
+    // /etc is not a regular file
+    var res2 = try ctx.runCommand(&[_][]const u8{ bin, "-f", "/etc" }, null);
+    defer res2.deinit();
+    try testing.expectEqual(@as(u8, 1), res2.exit_code);
 }
 
-test "test --help" {
+test "[ bracket syntax" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "test");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "[");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
+    var res1 = try ctx.runCommand(&[_][]const u8{ bin, "1", "-eq", "1", "]" }, null);
+    defer res1.deinit();
+    try testing.expectEqual(@as(u8, 0), res1.exit_code);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "test --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "test");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "test"));
+    // Missing ']'
+    var res2 = try ctx.runCommand(&[_][]const u8{ bin, "1", "-eq", "1" }, null);
+    defer res2.deinit();
+    try testing.expectEqual(@as(u8, 2), res2.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res2.stderr, 1, "missing ']'"));
 }

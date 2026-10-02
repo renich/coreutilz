@@ -233,6 +233,22 @@ fn splitRoundRobinFilter(
         }
     }
 
+    if (line_buf.items.len > 0 and active_filters > 0) {
+        const target = line_idx % spec.n;
+        if (!closed[target]) {
+            if (!writers[target].has_opened) {
+                try writers[target].openNew(namer, stdout, stderr);
+            }
+            writers[target].writeAll(line_buf.items, stderr) catch {};
+        }
+    }
+
+    for (writers) |*w| {
+        if (w.pipe_fd) |pfd| {
+            _ = c.close(pfd);
+            w.pipe_fd = null;
+        }
+    }
     for (writers) |*w| w.closeCurrent() catch {};
 }
 

@@ -67,3 +67,18 @@ test "groups --version" {
     try testing.expectEqual(@as(u8, 0), result.exit_code);
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "groups"));
 }
+
+test "groups unrecognized option" {
+    const allocator = testing.allocator;
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "groups");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--invalid" }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "unrecognized option '--invalid'"));
+}

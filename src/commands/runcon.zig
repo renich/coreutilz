@@ -25,10 +25,13 @@ fn getCurrentContext(buf: *[512]u8) ?[]const u8 {
 
 fn mergeContext(cur: []const u8, opts: *const RunconOptions, out: *[512]u8) ?[]const u8 {
     var it = std.mem.splitScalar(u8, cur, ':');
-    const u = opts.user orelse (it.next() orelse return null);
-    const r = opts.role orelse (it.next() orelse return null);
-    const t = opts.type_name orelse (it.next() orelse return null);
+    const orig_u = it.next() orelse return null;
+    const orig_r = it.next() orelse return null;
+    const orig_t = it.next() orelse return null;
     const rest = it.rest();
+    const u = opts.user orelse orig_u;
+    const r = opts.role orelse orig_r;
+    const t = opts.type_name orelse orig_t;
     const l = opts.range orelse if (rest.len > 0) rest else "s0";
     return std.fmt.bufPrint(out, "{s}:{s}:{s}:{s}", .{ u, r, t, l }) catch null;
 }
@@ -88,6 +91,17 @@ fn parseOptions(args: [][]const u8, opts: *RunconOptions, first_non_opt: *usize,
             return 0;
         } else if (std.mem.eql(u8, arg, "--compute")) {
             opts.compute = true;
+        } else if (std.mem.startsWith(u8, arg, "--user=")) {
+            opts.user = arg["--user=".len..];
+        } else if (std.mem.startsWith(u8, arg, "--role=")) {
+            opts.role = arg["--role=".len..];
+        } else if (std.mem.startsWith(u8, arg, "--type=")) {
+            opts.type_name = arg["--type=".len..];
+        } else if (std.mem.startsWith(u8, arg, "--range=")) {
+            opts.range = arg["--range=".len..];
+        } else if (std.mem.startsWith(u8, arg, "--")) {
+            stderr.print("runcon: unrecognized option '{s}'\nTry 'runcon --help' for more information.\n", .{arg}) catch {};
+            return 125;
         } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
             if (!parseShortOpt(arg, &i, args, opts, stderr)) return 125;
         } else {

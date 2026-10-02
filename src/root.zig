@@ -93,6 +93,18 @@ pub const uname_cmd = @import("commands/uname.zig");
 pub const arch_cmd = @import("commands/arch.zig");
 pub const chcon_cmd = @import("commands/chcon.zig");
 pub const runcon_cmd = @import("commands/runcon.zig");
+pub const pathchk_cmd = @import("commands/pathchk.zig");
+pub const realpath_cmd = @import("commands/realpath.zig");
+pub const mktemp_cmd = @import("commands/mktemp.zig");
+pub const tsort_cmd = @import("commands/tsort.zig");
+pub const factor_cmd = @import("commands/factor.zig");
+pub const dircolors_cmd = @import("commands/dircolors.zig");
+pub const test_cmd = @import("commands/test.zig");
+pub const expr_cmd = @import("commands/expr.zig");
+pub const printf_cmd = @import("commands/printf.zig");
+pub const join_cmd = @import("commands/join.zig");
+pub const shred_cmd = @import("commands/shred.zig");
+pub const install_cmd = @import("commands/install.zig");
 
 // Utility modules
 pub const utils = struct {

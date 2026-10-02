@@ -4,109 +4,74 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "pathchk basic usage" {
+test "pathchk --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pathchk");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "valid_path" }, null);
-    defer result.deinit();
+    var res_help = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_help.deinit();
+    try testing.expectEqual(@as(u8, 0), res_help.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_help.stdout, 1, "Usage: pathchk"));
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    var res_ver = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_ver.deinit();
+    try testing.expectEqual(@as(u8, 0), res_ver.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_ver.stdout, 1, "pathchk (coreutilz)"));
 }
 
-test "pathchk -p (POSIX portability)" {
+test "pathchk basic valid path" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pathchk");
+    defer allocator.free(bin);
 
-    // Test a very long path (POSIX limit is 255 for name, 4096 for path usually)
-    // Here we just test something that should pass
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-p", "a/b/c" }, null);
-    defer result.deinit();
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-
-    // Test with invalid POSIX character (e.g. space is allowed in some but discouraged in -p)
-    // Actually -p checks against the POSIX portable filename character set: [A-Za-z0-9._-]
-    var result_invalid = try ctx.runCommand(&[_][]const u8{ binary_path, "-p", "path with spaces" }, null);
-    defer result_invalid.deinit();
-    try testing.expect(result_invalid.exit_code != 0);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "foo/bar/baz.txt" }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
 }
 
-test "pathchk -P (POSIX strict - empty names)" {
+test "pathchk -p portability checks" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pathchk");
+    defer allocator.free(bin);
 
-    // -P checks for empty names and leading hyphens
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-P", "a//b" }, null);
-    defer result.deinit();
-    try testing.expect(result.exit_code != 0);
+    // Character '$' is not portable
+    var res_char = try ctx.runCommand(&[_][]const u8{ bin, "-p", "hello$world" }, null);
+    defer res_char.deinit();
+    try testing.expectEqual(@as(u8, 1), res_char.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_char.stderr, 1, "non-portable character"));
+
+    // Exceeding 14 chars component
+    var res_len = try ctx.runCommand(&[_][]const u8{ bin, "-p", "this_component_is_way_too_long" }, null);
+    defer res_len.deinit();
+    try testing.expectEqual(@as(u8, 1), res_len.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_len.stderr, 1, "limit 14 exceeded"));
 }
 
-test "pathchk multiple paths" {
+test "pathchk -P empty or leading hyphen" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pathchk");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "path1", "path2", "path3" }, null);
-    defer result.deinit();
+    var res_empty = try ctx.runCommand(&[_][]const u8{ bin, "-P", "" }, null);
+    defer res_empty.deinit();
+    try testing.expectEqual(@as(u8, 1), res_empty.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_empty.stderr, 1, "empty file name"));
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "pathchk with invalid characters" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
-
-    // NUL character is definitely invalid
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "path\x00with_nul" }, null);
-    defer result.deinit();
-    try testing.expect(result.exit_code != 0);
-}
-
-test "pathchk --help" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "pathchk --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pathchk");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "pathchk"));
+    var res_hyphen = try ctx.runCommand(&[_][]const u8{ bin, "-P", "--", "-hyphen" }, null);
+    defer res_hyphen.deinit();
+    try testing.expectEqual(@as(u8, 1), res_hyphen.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_hyphen.stderr, 1, "leading '-' in a component"));
 }

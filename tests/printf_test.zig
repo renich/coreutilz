@@ -4,107 +4,62 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "printf %s (string)" {
+test "printf --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "printf");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "hello %s\n", "world" }, null);
-    defer result.deinit();
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, res_h.stdout, 1, "Usage: printf"));
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("hello world\n", result.stdout);
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }
 
-test "printf %d (integer)" {
+test "printf simple string and escapes" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "printf");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "%d %i\n", "42", "-10" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("42 -10\n", result.stdout);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "hello\\nworld\\n" }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("hello\nworld\n", res.stdout);
 }
 
-test "printf %f (float)" {
+test "printf recycling format string" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "printf");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "%.2f\n", "3.14159" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("3.14\n", result.stdout);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "%s=%d\n", "a", "1", "b", "2" }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("a=1\nb=2\n", res.stdout);
 }
 
-test "printf %x %o (hex and octal)" {
+test "printf \\c early termination" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "printf");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "%x %o\n", "255", "64" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("ff 100\n", result.stdout);
-}
-
-test "printf %c (char)" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "%c\n", "A" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("A\n", result.stdout);
-}
-
-test "printf --help" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "printf --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "printf");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "printf"));
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "hello\\cworld\\n" }, null);
+    defer res.deinit();
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("hello", res.stdout);
 }

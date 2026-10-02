@@ -135,3 +135,19 @@ test "id --version" {
     try testing.expectEqual(@as(u8, 0), result.exit_code);
     try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "id"));
 }
+
+test "id unrecognized option diagnostics" {
+    const allocator = testing.allocator;
+
+    var ctx = try TestContext.init(allocator);
+    defer ctx.deinit();
+
+    const binary_path = try getBinaryPath(allocator, "id");
+    defer allocator.free(binary_path);
+
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--invalid-opt" }, null);
+    defer result.deinit();
+
+    try testing.expectEqual(@as(u8, 1), result.exit_code);
+    try testing.expect(std.mem.containsAtLeast(u8, result.stderr, 1, "unrecognized option '--invalid-opt'"));
+}

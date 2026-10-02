@@ -11,18 +11,20 @@ pub fn build(b: *std.Build) void {
     mod.link_libc = true;
 
     const commands = [_][]const u8{
-        "true",      "false",    "echo",   "cat",     "hostname", "logname",   "tty",       "whoami",
-        "nproc",     "hostid",   "unlink", "dirname", "basename", "printenv",  "pwd",       "readlink",
-        "mkdir",     "rmdir",    "rm",     "link",    "yes",      "sleep",     "sync",      "env",
-        "cp",        "mv",       "chmod",  "ln",      "stat",     "dd",        "head",      "wc",
-        "tee",       "truncate", "touch",  "cut",     "paste",    "seq",       "ls",        "dir",
-        "vdir",      "sort",     "uniq",   "comm",    "shuf",     "tac",       "split",     "csplit",
-        "tail",      "tr",       "fold",   "mkfifo",  "mknod",    "chown",     "chgrp",     "df",
-        "du",        "cksum",    "b2sum",  "md5sum",  "sha1sum",  "sha224sum", "sha256sum", "sha384sum",
-        "sha512sum", "base64",   "base32", "basenc",  "nl",       "fmt",       "pr",        "expand",
-        "unexpand",  "od",       "ptx",    "numfmt",  "timeout",  "nice",      "nohup",     "stdbuf",
-        "stty",      "date",     "chroot", "id",      "groups",   "who",       "users",     "pinky",
-        "uname",     "arch",     "chcon",  "runcon",
+        "true",      "false",     "echo",   "cat",     "hostname", "logname",   "tty",       "whoami",
+        "nproc",     "hostid",    "unlink", "dirname", "basename", "printenv",  "pwd",       "readlink",
+        "mkdir",     "rmdir",     "rm",     "link",    "yes",      "sleep",     "sync",      "env",
+        "cp",        "mv",        "chmod",  "ln",      "stat",     "dd",        "head",      "wc",
+        "tee",       "truncate",  "touch",  "cut",     "paste",    "seq",       "ls",        "dir",
+        "vdir",      "sort",      "uniq",   "comm",    "shuf",     "tac",       "split",     "csplit",
+        "tail",      "tr",        "fold",   "mkfifo",  "mknod",    "chown",     "chgrp",     "df",
+        "du",        "cksum",     "b2sum",  "md5sum",  "sha1sum",  "sha224sum", "sha256sum", "sha384sum",
+        "sha512sum", "base64",    "base32", "basenc",  "nl",       "fmt",       "pr",        "expand",
+        "unexpand",  "od",        "ptx",    "numfmt",  "timeout",  "nice",      "nohup",     "stdbuf",
+        "stty",      "date",      "chroot", "id",      "groups",   "who",       "users",     "pinky",
+        "uname",     "arch",      "chcon",  "runcon",  "pathchk",  "realpath",  "mktemp",    "tsort",
+        "factor",    "dircolors", "test",   "[",       "expr",     "printf",    "join",      "shred",
+        "install",
     };
 
     const install_step = b.getInstallStep();
@@ -43,8 +45,16 @@ pub fn build(b: *std.Build) void {
         exe.root_module.link_libc = true;
         b.installArtifact(exe);
 
-        const cmd_step = b.step(cmd, b.fmt("Build {s}", .{cmd}));
-        cmd_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        if (!std.mem.eql(u8, cmd, "install") and !std.mem.eql(u8, cmd, "test")) {
+            const cmd_step = b.step(cmd, b.fmt("Build {s}", .{cmd}));
+            cmd_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        } else if (std.mem.eql(u8, cmd, "install")) {
+            const cmd_step = b.step("cmd-install", "Build install utility");
+            cmd_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        } else if (std.mem.eql(u8, cmd, "test")) {
+            const cmd_step = b.step("cmd-test", "Build test utility");
+            cmd_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        }
     }
 
     const main_exe = b.addExecutable(.{
@@ -96,6 +106,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         test_mod.addImport("framework", test_framework);
+        test_mod.link_libc = true;
 
         const test_exe = b.addTest(.{
             .root_module = test_mod,

@@ -43,9 +43,8 @@ fn parseShort(ch: u8, opts: *IdOptions) bool {
 
 fn parseLong(arg: []const u8, opts: *IdOptions) bool {
     const map = [_]struct { []const u8, *bool }{
-        .{ "--user", &opts.opt_u },    .{ "--group", &opts.opt_g },
-        .{ "--groups", &opts.opt_G },  .{ "--name", &opts.opt_n },
-        .{ "--real", &opts.opt_r },    .{ "--zero", &opts.opt_z },
+        .{ "--user", &opts.opt_u },    .{ "--group", &opts.opt_g }, .{ "--groups", &opts.opt_G },
+        .{ "--name", &opts.opt_n },    .{ "--real", &opts.opt_r },  .{ "--zero", &opts.opt_z },
         .{ "--context", &opts.opt_Z },
     };
     for (map) |m| if (std.mem.eql(u8, arg, m[0])) {
@@ -55,7 +54,7 @@ fn parseLong(arg: []const u8, opts: *IdOptions) bool {
     return false;
 }
 
-fn parseOptions(args: [][]const u8, opts: *IdOptions, list: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, out: anytype) !?u8 {
+fn parseOptions(args: [][]const u8, opts: *IdOptions, list: *std.ArrayListUnmanaged([]const u8), alloc: std.mem.Allocator, out: anytype, err: anytype) !?u8 {
     var i: usize = 1;
     var past = false;
     while (i < args.len) : (i += 1) {
@@ -71,8 +70,14 @@ fn parseOptions(args: [][]const u8, opts: *IdOptions, list: *std.ArrayListUnmana
             try out.print("id (coreutilz) {s}\n", .{version});
             return 0;
         } else if (std.mem.startsWith(u8, arg, "--")) {
-            if (!parseLong(arg, opts)) return 1;
-        } else for (arg[1..]) |ch| if (!parseShort(ch, opts)) return 1;
+            if (!parseLong(arg, opts)) {
+                try err.print("id: unrecognized option '{s}'\nTry 'id --help' for more information.\n", .{arg});
+                return 1;
+            }
+        } else for (arg[1..]) |ch| if (!parseShort(ch, opts)) {
+            try err.print("id: invalid option -- '{c}'\nTry 'id --help' for more information.\n", .{ch});
+            return 1;
+        };
     }
     return null;
 }
@@ -210,13 +215,9 @@ fn printSingle(opts: *const IdOptions, info: *const UserInfo, ctx: ?[]const u8, 
 }
 
 fn printDiffId(out: anytype, tag: []const u8, id_val: c.uid_t, is_user: bool) !void {
-    const nm = if (is_user) blk: {
-        const p = c.getpwuid(id_val);
-        break :blk if (p != null and p.*.pw_name != null) std.mem.span(p.*.pw_name) else "";
-    } else blk: {
-        const g = c.getgrgid(id_val);
-        break :blk if (g != null and g.*.gr_name != null) std.mem.span(g.*.gr_name) else "";
-    };
+    const p = if (is_user) c.getpwuid(id_val) else null;
+    const g = if (!is_user) c.getgrgid(id_val) else null;
+    const nm = if (p) |pw| if (pw.*.pw_name) |n| std.mem.span(n) else "" else if (g) |gr| if (gr.*.gr_name) |n| std.mem.span(n) else "" else "";
     try out.print(" {s}={d}({s})", .{ tag, id_val, nm });
 }
 
@@ -272,8 +273,9 @@ pub fn run(args: [][]const u8, allocator: std.mem.Allocator) !u8 {
     var user_list: std.ArrayListUnmanaged([]const u8) = .empty;
     defer user_list.deinit(allocator);
 
-    if (try parseOptions(args, &opts, &user_list, allocator, stdout)) |rc| {
+    if (try parseOptions(args, &opts, &user_list, allocator, stdout, stderr)) |rc| {
         stdout.flush() catch return 1;
+        stderr.flush() catch {};
         return rc;
     }
     if (validateOptions(&opts, user_list.items.len, stderr)) |err_rc| {
