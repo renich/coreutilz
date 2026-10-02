@@ -28,22 +28,37 @@ test "nohup ignores SIGHUP" {
     defer allocator.free(binary_path);
 
     // Run a command that waits
-    var child = std.process.Child.init(&[_][]const u8{ binary_path, "sleep", "60" }, allocator);
-    try child.spawn();
+    var child = try std.process.spawn(std.testing.io, .{
+        .argv = &[_][]const u8{ binary_path, "sleep", "60" },
+    });
+    defer child.kill(std.testing.io);
 
     // Send SIGHUP to the nohup process
-    _ = std.os.linux.kill(@intCast(child.id), std.os.linux.SIG.HUP);
+    std.posix.kill(child.id.?, std.posix.SIG.HUP) catch {};
 
     // Give it a moment
-    std.Thread.sleep(100 * std.time.ns_per_ms);
+    _ = std.posix.poll(&.{}, 100) catch {};
 
     // Check if it's still running (kill with 0 signal)
-    const kill_res = std.os.linux.kill(@intCast(child.id), 0);
-    try testing.expectEqual(@as(usize, 0), kill_res);
+    const alive = std.os.linux.syscall2(.kill, @bitCast(@as(isize, child.id.?)), 0) == 0;
+    try testing.expect(alive);
+}
 
-    // Clean up
-    try std.os.linux.kill(@intCast(child.id), std.os.linux.SIG.TERM);
-    _ = try child.wait();
+fn openPtyPair() ?struct { ptmx: std.posix.fd_t, pts: std.posix.fd_t } {
+    const ptmx = std.posix.openat(std.posix.AT.FDCWD, "/dev/ptmx", .{ .ACCMODE = .RDWR }, 0) catch return null;
+    _ = std.os.linux.ioctl(ptmx, std.os.linux.T.IOCSPTLCK, @intFromPtr(&@as(c_int, 0)));
+    var pty_num: c_int = 0;
+    _ = std.os.linux.ioctl(ptmx, std.os.linux.T.IOCGPTN, @intFromPtr(&pty_num));
+    var pts_buf: [64]u8 = undefined;
+    const pts_name = std.fmt.bufPrintZ(&pts_buf, "/dev/pts/{d}", .{pty_num}) catch {
+        _ = std.os.linux.close(ptmx);
+        return null;
+    };
+    const pts = std.posix.openat(std.posix.AT.FDCWD, pts_name, .{ .ACCMODE = .RDWR }, 0) catch {
+        _ = std.os.linux.close(ptmx);
+        return null;
+    };
+    return .{ .ptmx = ptmx, .pts = pts };
 }
 
 test "nohup redirects to nohup.out" {
@@ -57,19 +72,19 @@ test "nohup redirects to nohup.out" {
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
 
-    // To test nohup.out creation, we need stdout to not be a pipe.
-    // We'll run it with stdout/stderr ignored in the Child, which should trigger nohup's redirection.
-    var child = std.process.Child.init(&[_][]const u8{ binary_path, "echo", "test-nohup-out" }, allocator);
-    child.cwd = tmp_path;
-    child.stdout_behavior = .Ignore;
-    child.stderr_behavior = .Ignore;
+    const pty = openPtyPair() orelse return;
+    defer {
+        _ = std.os.linux.close(pty.ptmx);
+        _ = std.os.linux.close(pty.pts);
+    }
 
-    try child.spawn();
-    _ = try child.wait();
-
-    // Check for nohup.out in the temp directory
-    const nohup_out_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "nohup.out" });
-    defer allocator.free(nohup_out_path);
+    var child = try std.process.spawn(std.testing.io, .{
+        .argv = &[_][]const u8{ binary_path, "echo", "test-nohup-out" },
+        .cwd = .{ .path = tmp_path },
+        .stdout = .{ .file = .{ .handle = pty.pts, .flags = .{ .nonblocking = false } } },
+        .stderr = .ignore,
+    });
+    _ = try child.wait(std.testing.io);
 
     const content = try ctx.readFile("nohup.out");
     defer allocator.free(content);
@@ -88,16 +103,21 @@ test "nohup with existing output file" {
     const tmp_path = try ctx.tmpPath(".");
     defer allocator.free(tmp_path);
 
-    // Pre-create nohup.out
     try ctx.writeFile("nohup.out", "existing\n");
 
-    var child = std.process.Child.init(&[_][]const u8{ binary_path, "echo", "appended" }, allocator);
-    child.cwd = tmp_path;
-    child.stdout_behavior = .Ignore;
-    child.stderr_behavior = .Ignore;
+    const pty = openPtyPair() orelse return;
+    defer {
+        _ = std.os.linux.close(pty.ptmx);
+        _ = std.os.linux.close(pty.pts);
+    }
 
-    try child.spawn();
-    _ = try child.wait();
+    var child = try std.process.spawn(std.testing.io, .{
+        .argv = &[_][]const u8{ binary_path, "echo", "appended" },
+        .cwd = .{ .path = tmp_path },
+        .stdout = .{ .file = .{ .handle = pty.pts, .flags = .{ .nonblocking = false } } },
+        .stderr = .ignore,
+    });
+    _ = try child.wait(std.testing.io);
 
     const content = try ctx.readFile("nohup.out");
     defer allocator.free(content);

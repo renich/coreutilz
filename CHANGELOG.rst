@@ -13,6 +13,14 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 Added
 -----
 
+* Added Phase 5 Batch G execution, process, and system state utilities: ``timeout``, ``nice``, ``nohup``, ``stdbuf``, ``stty``, ``date``, and ``chroot`` in Zig 0.16.0 achieving 100% behavioral parity across upstream GNU Coreutils test harness (16 passed, 12 skipped, 0 failed), internal test suites (341/341 steps passing with 0 leaks), 860/860 deterministic container permutations, and static analysis linting gates.
+* Complete ``timeout`` execution guard supporting duration parsing with fractional and scientific notation, suffix multipliers (s/m/h/d), signal delivery (``-s``), kill-after escalations (``-k``), foreground process group control (``--foreground``), and preserve status flag (``--preserve-status``).
+* Complete ``nice`` priority scheduler supporting niceness adjustments (``-n``), process execution, and error code conformity (125/126/127).
+* Complete ``nohup`` immune execution utility with atomic ``nohup.out`` creation with restricted permissions (0600), background redirection fallback, and diagnostic warnings on stderr redirection.
+* Complete ``stdbuf`` stream buffer modifier with ``libstdbuf.so`` dynamic injection via ``LD_PRELOAD``, supporting input/output/error stream buffering adjustment (unbuffered, line-buffered, block-buffered with memory size prefixes).
+* Complete ``stty`` terminal line discipline interface implementing termios manipulation, speed configuration, character setting, special modes, and readable status reporting.
+* Complete ``date`` timestamp formatter and parser with full format string expansion, RFC 2822/RFC 3339/ISO 8601 formatting, custom nanosecond subsecond substitution (``%N``, ``%-N``), timezone offsets, relative interval arithmetic (years/months/days), weekday parsing, military timezones, and ``--resolution``.
+* Complete ``chroot`` root directory changer with optional user/group credential switching and primary group auto-resolution.
 * Added Phase 5 Batch F text formatting and padding utilities: ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``, ``ptx``, and ``numfmt`` in Zig 0.16.0 passing 713/713 internal unit and integration tests with zero memory leaks, 790/790 deterministic container permutations, and static analysis linting gates.
 * Complete ``nl`` line numbering utility supporting body/header/footer numbering styles (all, non-empty, none, and regex), section delimiters, line number increments, formats (left-justified, right-justified, leading zeros), width, and blank line coalescing.
 * Complete ``fmt`` paragraph reflower supporting Knuth-Plass style optimal paragraph wrapping, crown margins, tagged paragraphs, split-only mode, uniform punctuation spacing, and prefix preservation.

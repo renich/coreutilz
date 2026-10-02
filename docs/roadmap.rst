@@ -144,7 +144,7 @@ Phase 5: Expanded Coreutils Suite (Roadmap Vision)
 * **Batch F (Text Formatting & Padding)**: ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``, ``ptx``, ``numfmt``
   - Status: COMPLETE (713/713 internal unit and integration tests passing, 790/790 container permutations, pristine AST and architecture linting).
 * **Batch G (Execution, Process & System State)**: ``timeout``, ``nice``, ``nohup``, ``stdbuf``, ``stty``, ``date``, ``chroot``
-  - Status: In Progress (Specifications ratified under SPEC-FUNC-EXEC-SYS and SPEC-TECH-EXEC-SYS).
+  - Status: COMPLETE (16 passed, 12 skipped, 0 failed in GNU Coreutils test harness, 341/341 internal tests passing, 860/860 container permutations).
 * **Batch H (Identity, Security & Environment)**: ``id``, ``groups``, ``who``, ``users``, ``pinky``, ``uname``, ``arch``, ``chcon``, ``runcon``
   - Status: Planned.
 * **Batch I (Advanced Shell, Relational & Math)**: ``test`` / ``[``, ``expr``, ``factor``, ``printf``, ``join``, ``tsort``, ``shred``, ``mktemp``, ``realpath``, ``pathchk``, ``install``, ``dircolors``

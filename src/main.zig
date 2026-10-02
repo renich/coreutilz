@@ -31,7 +31,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
             }
             return dispatch(subcmd, args[1..], allocator) catch |err| {
                 handleDispatchError(subcmd, err);
-                return 1;
+                return coreutilz.utils.runner.getExitFailure(subcmd);
             };
         } else {
             printUsage();
@@ -40,7 +40,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     } else {
         return dispatch(arg0, args, allocator) catch |err| {
             handleDispatchError(arg0, err);
-            return 1;
+            return coreutilz.utils.runner.getExitFailure(arg0);
         };
     }
 }
@@ -225,6 +225,20 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.ptx_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "numfmt")) {
         return try coreutilz.numfmt_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "timeout")) {
+        return try coreutilz.timeout_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "nice")) {
+        return try coreutilz.nice_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "nohup")) {
+        return try coreutilz.nohup_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "stdbuf")) {
+        return try coreutilz.stdbuf_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "stty")) {
+        return try coreutilz.stty_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "date")) {
+        return try coreutilz.date_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "chroot")) {
+        return try coreutilz.chroot_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -247,7 +261,8 @@ fn printUsage() void {
         \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
         \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du,
         \\  cksum, b2sum, md5sum, sha1sum, sha224sum, sha256sum, sha384sum, sha512sum,
-        \\  base64, base32, basenc, nl, fmt, pr, expand, unexpand, od, ptx, numfmt
+        \\  base64, base32, basenc, nl, fmt, pr, expand, unexpand, od, ptx, numfmt,
+        \\  timeout, nice, nohup, stdbuf, stty, date, chroot
         \\
     ) catch {};
 

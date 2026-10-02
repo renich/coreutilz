@@ -77,6 +77,13 @@ pub const unexpand_cmd = @import("commands/unexpand.zig");
 pub const od_cmd = @import("commands/od.zig");
 pub const ptx_cmd = @import("commands/ptx.zig");
 pub const numfmt_cmd = @import("commands/numfmt.zig");
+pub const timeout_cmd = @import("commands/timeout.zig");
+pub const nice_cmd = @import("commands/nice.zig");
+pub const nohup_cmd = @import("commands/nohup.zig");
+pub const stdbuf_cmd = @import("commands/stdbuf.zig");
+pub const stty_cmd = @import("commands/stty.zig");
+pub const date_cmd = @import("commands/date.zig");
+pub const chroot_cmd = @import("commands/chroot.zig");
 
 // Utility modules
 pub const utils = struct {

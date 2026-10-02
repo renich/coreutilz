@@ -20,7 +20,8 @@ pub fn build(b: *std.Build) void {
         "tail",      "tr",       "fold",   "mkfifo",  "mknod",    "chown",     "chgrp",     "df",
         "du",        "cksum",    "b2sum",  "md5sum",  "sha1sum",  "sha224sum", "sha256sum", "sha384sum",
         "sha512sum", "base64",   "base32", "basenc",  "nl",       "fmt",       "pr",        "expand",
-        "unexpand",  "od",       "ptx",    "numfmt",
+        "unexpand",  "od",       "ptx",    "numfmt",  "timeout",  "nice",      "nohup",     "stdbuf",
+        "stty",      "date",     "chroot",
     };
 
     const install_step = b.getInstallStep();

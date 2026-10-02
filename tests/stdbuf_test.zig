@@ -28,7 +28,7 @@ test "stdbuf -i (input buffering)" {
     const binary_path = try getBinaryPath(allocator, "stdbuf");
     defer allocator.free(binary_path);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-iL", "cat" }, "input data\n");
+    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-i0", "cat" }, "input data\n");
     defer result.deinit();
 
     try testing.expectEqual(@as(u8, 0), result.exit_code);

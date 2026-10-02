@@ -9,6 +9,7 @@ pub const c = @cImport({
     @cInclude("fnmatch.h");
     @cInclude("getopt.h");
     @cInclude("grp.h");
+    @cInclude("langinfo.h");
     @cInclude("locale.h");
     @cInclude("mntent.h");
     @cInclude("poll.h");
@@ -19,11 +20,13 @@ pub const c = @cImport({
     @cInclude("stdlib.h");
     @cInclude("string.h");
     @cInclude("sys/ioctl.h");
+    @cInclude("sys/resource.h");
     @cInclude("sys/stat.h");
     @cInclude("sys/statvfs.h");
     @cInclude("sys/sysmacros.h");
     @cInclude("sys/types.h");
     @cInclude("sys/wait.h");
+    @cInclude("termios.h");
     @cInclude("time.h");
     @cInclude("unistd.h");
     @cInclude("wchar.h");

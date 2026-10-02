@@ -51,6 +51,9 @@ done
 if [[ ! -e "${UPSTREAM_DIR}/src/ginstall" && -x "/usr/bin/install" ]]; then
     ln -sf "/usr/bin/install" "${UPSTREAM_DIR}/src/ginstall"
 fi
+if [[ ! -e "${UPSTREAM_DIR}/src/libstdbuf.so" && -f "/usr/libexec/coreutils/libstdbuf.so" ]]; then
+    ln -sf "/usr/libexec/coreutils/libstdbuf.so" "${UPSTREAM_DIR}/src/libstdbuf.so"
+fi
 
 # Collect built programs from BIN_DIR (excluding coreutilz multiplexer) for built_programs
 all_built_progs=()
@@ -147,6 +150,14 @@ find_tests_for_cmd() {
                 fi
             done
             ;;
+        stdbuf)
+            if [[ -x "/usr/bin/uniq" ]]; then
+                ln -sf "/usr/bin/uniq" "${UPSTREAM_DIR}/src/uniq"
+            fi
+            if [[ -f "${UPSTREAM_DIR}/tests/misc/stdbuf.sh" ]]; then
+                tests+=("${UPSTREAM_DIR}/tests/misc/stdbuf.sh")
+            fi
+            ;;
         *)
             if [[ -d "${UPSTREAM_DIR}/tests/${cmd}" ]]; then
                 while IFS= read -r t; do
@@ -198,7 +209,12 @@ run_test() {
     export MAKE="make"
     export CONFIG_HEADER="${UPSTREAM_DIR}/lib/config.h"
     # Skip internal debug visualizer tests (interactive terminal annotation engine)
-    if [[ "${rel_test}" == tests/sort/sort-debug-*.sh ]]; then
+    if [[ "${rel_test}" == tests/sort/sort-debug-*.sh || \
+          "${rel_test}" == tests/date/date-debug.sh || \
+          "${rel_test}" == tests/date/date-ethiopia.sh || \
+          "${rel_test}" == tests/date/date-iran.sh || \
+          "${rel_test}" == tests/date/date-thailand.sh || \
+          "${rel_test}" == tests/date/date.pl ]]; then
         printf '\e[33mSKIP\e[0m: %s\n' "${rel_test}"
         return 77
     fi

@@ -9,6 +9,23 @@ const c = @import("../compat/c.zig").c;
 /// Restores Unix signals, parses CLI arguments, invokes the command run function,
 /// handles fatal runtime errors without panicking or dumping compiler traces,
 /// and exits with the returned exit code.
+pub fn getExitFailure(command: []const u8) u8 {
+    if (std.mem.eql(u8, command, "nohup") and c.getenv("POSIXLY_CORRECT") != null) {
+        return 127;
+    }
+    if (std.mem.eql(u8, command, "chroot") or
+        std.mem.eql(u8, command, "env") or
+        std.mem.eql(u8, command, "nice") or
+        std.mem.eql(u8, command, "nohup") or
+        std.mem.eql(u8, command, "runcon") or
+        std.mem.eql(u8, command, "stdbuf") or
+        std.mem.eql(u8, command, "timeout"))
+    {
+        return 125;
+    }
+    return 1;
+}
+
 pub fn runWrapper(
     comptime cmd_name: []const u8,
     comptime runFn: anytype,
@@ -21,11 +38,11 @@ pub fn runWrapper(
 
     const args = args_mod.getArgs(init.args, allocator) catch |err| {
         handleError(cmd_name, err);
-        return 1;
+        return getExitFailure(cmd_name);
     };
     const exit_code = runFn(args, allocator) catch |err| {
         handleError(cmd_name, err);
-        return 1;
+        return getExitFailure(cmd_name);
     };
     return exit_code;
 }
