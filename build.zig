@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
         "stty",      "date",      "chroot", "id",      "groups",   "who",       "users",     "pinky",
         "uname",     "arch",      "chcon",  "runcon",  "pathchk",  "realpath",  "mktemp",    "tsort",
         "factor",    "dircolors", "test",   "[",       "expr",     "printf",    "join",      "shred",
-        "install",
+        "install",   "sum",       "kill",   "uptime",
     };
 
     const install_step = b.getInstallStep();

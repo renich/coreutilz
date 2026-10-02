@@ -120,4 +120,6 @@ Modular Specifications
 - **Execution, Process & System State**: `docs/functional/specs/execution-system-state.rst <functional/specs/execution-system-state.rst>`_ | `docs/technical/specs/execution-system-state.rst <technical/specs/execution-system-state.rst>`_
 - **Identity, Security & Environment**: `docs/functional/specs/identity-security-env.rst <functional/specs/identity-security-env.rst>`_ | `docs/technical/specs/identity-security-env.rst <technical/specs/identity-security-env.rst>`_
 - **Advanced Shell, Relational & Math**: `docs/functional/specs/shell-relational-math.rst <functional/specs/shell-relational-math.rst>`_ | `docs/technical/specs/shell-relational-math.rst <technical/specs/shell-relational-math.rst>`_
+- **System Inspection & Process Control**: `docs/functional/specs/system-inspection-process.rst <functional/specs/system-inspection-process.rst>`_ | `docs/technical/specs/system-inspection-process.rst <technical/specs/system-inspection-process.rst>`_
+
 

@@ -47,6 +47,12 @@
     "status": "completed",
     "upstream": "34_passed_2_skipped"
   },
+  "batch_j": {
+    "container": "1100_passed",
+    "internal_tests": "441_passed",
+    "status": "completed",
+    "upstream": "3_passed_0_skipped"
+  },
   "journal_version": "0.2.0",
   "pjp_version": "0.9.0",
   "status": "in_progress",

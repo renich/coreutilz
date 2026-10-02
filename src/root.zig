@@ -105,6 +105,9 @@ pub const printf_cmd = @import("commands/printf.zig");
 pub const join_cmd = @import("commands/join.zig");
 pub const shred_cmd = @import("commands/shred.zig");
 pub const install_cmd = @import("commands/install.zig");
+pub const sum_cmd = @import("commands/sum.zig");
+pub const kill_cmd = @import("commands/kill.zig");
+pub const uptime_cmd = @import("commands/uptime.zig");
 
 // Utility modules
 pub const utils = struct {

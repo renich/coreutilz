@@ -130,7 +130,8 @@ const COMMANDS = [_]CmdEntry{
     .{ .name = "test", .run = coreutilz.test_cmd.run },           .{ .name = "[", .run = coreutilz.test_cmd.run },
     .{ .name = "expr", .run = coreutilz.expr_cmd.run },           .{ .name = "printf", .run = coreutilz.printf_cmd.run },
     .{ .name = "join", .run = coreutilz.join_cmd.run },           .{ .name = "shred", .run = coreutilz.shred_cmd.run },
-    .{ .name = "install", .run = coreutilz.install_cmd.run },
+    .{ .name = "install", .run = coreutilz.install_cmd.run },     .{ .name = "sum", .run = coreutilz.sum_cmd.run },
+    .{ .name = "kill", .run = coreutilz.kill_cmd.run },           .{ .name = "uptime", .run = coreutilz.uptime_cmd.run },
 };
 
 fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocator) !u8 {

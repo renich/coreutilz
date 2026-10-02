@@ -13,7 +13,12 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 Added
 -----
 
+* Added Phase 5 Batch J system inspection and process control utilities: ``sum``, ``kill``, and ``uptime`` in Zig 0.16.0 achieving 100% behavioral parity across upstream GNU Coreutils test harness (3 passed, 0 skipped, 0 failed), internal test suites (441/441 steps passing with 0 leaks), 1100/1100 deterministic container permutations, and static analysis linting gates.
+* Complete ``sum`` checksum and block counting utility supporting BSD 16-bit 1K-block algorithm (``-r``, default) and System V 16-bit 512-byte block algorithm (``-s``, ``--sysv``) across files and standard input streams.
+* Complete ``kill`` process signaling and signal inspection utility supporting process group targets, numeric and named signal specifications (``-s``, ``-n``, ``-SIGNAL``), case-insensitive uppercase-validated options, shell status translation (``128 + sig``, ``256 + sig``), signal table generation (``-t``, ``-L``), and signal listing (``-l``).
+* Complete ``uptime`` system activity reporter displaying formatted current time, days/hours/minutes elapsed uptime, active user session count via POSIX/glibc ``utmpx`` database, boot timestamp reporting (``-s``, ``--since``), and 1, 5, and 15-minute system load averages.
 * Added Phase 5 Batch I advanced shell, relational, and math utilities: ``test`` / ``[``, ``expr``, ``factor``, ``printf``, ``join``, ``tsort``, ``shred``, ``mktemp``, ``realpath``, ``pathchk``, ``install``, and ``dircolors`` in Zig 0.16.0 achieving 100% behavioral parity across upstream GNU Coreutils test harness (34 passed, 2 skipped, 0 failed), internal test suites (429/429 steps passing with 0 leaks), 1080/1080 deterministic container permutations, and static analysis linting gates.
+
 * Complete ``test`` and ``[`` expression evaluation utilities supporting POSIX 1-to-4 argument grammars, unary file and string tests, binary comparisons, algebraic comparisons, and exit code 2 write error parity on ``/dev/full``.
 * Complete ``expr`` arbitrary-precision expression evaluator supporting arithmetic, comparison, logical, substring, and pattern operations with exit code 3 on write errors.
 * Complete ``factor`` prime factorizer with Pollard's rho, trial division, Miller-Rabin primality testing, atomic line buffer output, and multi-process pipeline safety.

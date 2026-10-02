@@ -157,6 +157,14 @@ find_tests_for_cmd() {
                 fi
             done
             ;;
+        sum)
+            for t in "${UPSTREAM_DIR}/tests/cksum"/sum*.sh "${UPSTREAM_DIR}/tests/cksum"/sum*.pl; do
+                if [[ -f "${t}" ]]; then
+                    tests+=("${t}")
+                fi
+            done
+            ;;
+
         stdbuf)
             if [[ -x "/usr/bin/uniq" ]]; then
                 ln -sf "/usr/bin/uniq" "${UPSTREAM_DIR}/src/uniq"
