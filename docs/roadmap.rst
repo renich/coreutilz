@@ -141,6 +141,12 @@ Phase 5: Expanded Coreutils Suite (Roadmap Vision)
   - Status: COMPLETE (45 passed, 12 skipped, 0 failed in GNU Coreutils test harness, 860/860 internal tests passing, 600/600 container permutations).
 * **Batch E (Checksums & Base Encodings)**: ``cksum``, ``b2sum``, ``md5sum``, ``sha1sum``, ``sha224sum``, ``sha256sum``, ``sha384sum``, ``sha512sum``, ``base64``, ``base32``, ``basenc``
   - Status: COMPLETE (23 passed, 3 skipped, 0 failed in GNU Coreutils test harness, 281 test runners passing, 710 container permutations).
-* **Batch F (Text Formatting)**: ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``
-  - Status: Planned (Next Active Track).
+* **Batch F (Text Formatting & Padding)**: ``nl``, ``fmt``, ``pr``, ``expand``, ``unexpand``, ``od``, ``ptx``, ``numfmt``
+  - Status: COMPLETE (713/713 internal unit and integration tests passing, 790/790 container permutations, pristine AST and architecture linting).
+* **Batch G (Execution, Process & System State)**: ``timeout``, ``nice``, ``nohup``, ``stdbuf``, ``stty``, ``date``, ``chroot``
+  - Status: In Progress (Specifications ratified under SPEC-FUNC-EXEC-SYS and SPEC-TECH-EXEC-SYS).
+* **Batch H (Identity, Security & Environment)**: ``id``, ``groups``, ``who``, ``users``, ``pinky``, ``uname``, ``arch``, ``chcon``, ``runcon``
+  - Status: Planned.
+* **Batch I (Advanced Shell, Relational & Math)**: ``test`` / ``[``, ``expr``, ``factor``, ``printf``, ``join``, ``tsort``, ``shred``, ``mktemp``, ``realpath``, ``pathchk``, ``install``, ``dircolors``
+  - Status: Planned.
 

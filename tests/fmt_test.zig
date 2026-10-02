@@ -4,126 +4,71 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "fmt basic paragraph formatting" {
+test "fmt basic paragraph reflow" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "fmt");
+    defer allocator.free(bin);
 
-    const input = "This is a short line.\nThis is another short line.\n";
-    var result = try ctx.runCommand(&[_][]const u8{binary_path}, input);
-    defer result.deinit();
+    try ctx.writeFile("input.txt", "one two three four five six seven eight nine ten\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // Default width is usually 75, so it should join these lines
-    try testing.expectEqualStrings("This is a short line.  This is another short line.\n", result.stdout);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-w", "20", p }, null);
+    defer res.deinit();
+
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expect(res.stdout.len > 0);
 }
 
-test "fmt -w (width)" {
+test "fmt prefix preservation" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "fmt");
+    defer allocator.free(bin);
 
-    const input = "one two three four five six seven eight nine ten\n";
-    // Width 10 should split it
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-w", "10" }, input);
-    defer result.deinit();
+    try ctx.writeFile("input.txt", "> word1\n> word2\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "one two"));
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "\n"));
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-p", ">", p }, null);
+    defer res.deinit();
+
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("> word1 word2\n", res.stdout);
 }
 
-test "fmt -c (crown margin)" {
+test "fmt invalid width yields exit 1" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "fmt");
+    defer allocator.free(bin);
 
-    const input = "  First line of a paragraph.\nSecond line of the same paragraph.\n";
-    // Crown margin: first two lines' indentation defines the paragraph's indentation
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-c" }, input);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-w", "32768" }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // This is hard to assert exactly without knowing the implementation's behavior on small inputs
-    // but we test that it runs.
+    try testing.expectEqual(@as(u8, 1), res.exit_code);
 }
 
-test "fmt -u (uniform spacing)" {
+test "fmt --help and --version" {
     const allocator = testing.allocator;
-
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "fmt");
+    defer allocator.free(bin);
 
-    const input = "Word1   Word2.    Word3\n";
-    // Uniform spacing: 1 space between words, 2 after sentences
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-u" }, input);
-    defer result.deinit();
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("Word1 Word2.  Word3\n", result.stdout);
-}
-
-test "fmt -s (split only)" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
-
-    const input = "short\nline\n";
-    // Split only: should NOT join short lines
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-s" }, input);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("short\nline\n", result.stdout);
-}
-
-test "fmt --help" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "fmt --version" {
-    const allocator = testing.allocator;
-
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "fmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "fmt"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }

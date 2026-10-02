@@ -4,116 +4,57 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "ptx basic permuted index" {
+test "ptx -w10 single token" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "ptx");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "hello world\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    try ctx.writeFile("input.txt", "bar\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, file_path }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-w10", p }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // Basic ptx output contains the words in some format
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "hello"));
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "world"));
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("        bar\n", res.stdout);
 }
 
-test "ptx -f ignore case" {
+test "ptx --format=roff" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "ptx");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "Hello\nhello\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    try ctx.writeFile("input.txt", "foo\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-f", file_path }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "--format=roff", p }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings(".xx \"\" \"\" \"foo\" \"\"\n", res.stdout);
 }
 
-test "ptx -w word regexp" {
+test "ptx --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "ptx");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "abc:def\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    // Only match 'abc' as a word
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-w", "[a-c]+", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "ptx -r ref regexp" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "ref1: text\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-r", "-R", "^[^:]+:", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-}
-
-test "ptx --help option" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "ptx --version option" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "ptx");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "ptx"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }

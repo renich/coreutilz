@@ -209,6 +209,22 @@ fn dispatch(command: []const u8, args: [][]const u8, allocator: std.mem.Allocato
         return try coreutilz.base32_cmd.run(args, allocator);
     } else if (std.mem.eql(u8, command, "basenc")) {
         return try coreutilz.basenc_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "nl")) {
+        return try coreutilz.nl_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "fmt")) {
+        return try coreutilz.fmt_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "pr")) {
+        return try coreutilz.pr_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "expand")) {
+        return try coreutilz.expand_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "unexpand")) {
+        return try coreutilz.unexpand_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "od")) {
+        return try coreutilz.od_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "ptx")) {
+        return try coreutilz.ptx_cmd.run(args, allocator);
+    } else if (std.mem.eql(u8, command, "numfmt")) {
+        return try coreutilz.numfmt_cmd.run(args, allocator);
     } else {
         std.debug.print("{s}: unknown command\n", .{command});
         return 1;
@@ -231,9 +247,10 @@ fn printUsage() void {
         \\  split, stat, sync, tac, tail, tee, touch, tr, true, truncate, tty, uniq,
         \\  unlink, vdir, wc, whoami, yes, mkfifo, mknod, chown, chgrp, df, du,
         \\  cksum, b2sum, md5sum, sha1sum, sha224sum, sha256sum, sha384sum, sha512sum,
-        \\  base64, base32, basenc
+        \\  base64, base32, basenc, nl, fmt, pr, expand, unexpand, od, ptx, numfmt
         \\
     ) catch {};
+
     writer.interface.flush() catch {};
 }
 

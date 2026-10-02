@@ -107,3 +107,15 @@ C-ABI Interoperability
 Coreutilz uses direct C ABI interop via ``@cImport`` for POSIX/Linux kernel syscalls:
 - Extended attributes, ``statx``, file descriptors, groups, passwords, directory streams (``dirent``), and terminal controls (``termios``).
 - Zero wrapper crate overhead; direct integration with glibc/musl APIs.
+
+Modular Specifications
+======================
+
+- **Directory & Listing**: `docs/functional/specs/directory-listing.rst <functional/specs/directory-listing.rst>`_ | `docs/technical/specs/directory-listing.rst <technical/specs/directory-listing.rst>`_
+- **Text Sorting & Grouping**: `docs/functional/specs/text-sorting-grouping.rst <functional/specs/text-sorting-grouping.rst>`_ | `docs/technical/specs/text-sorting-grouping.rst <technical/specs/text-sorting-grouping.rst>`_
+- **Text Splitting & Filtering**: `docs/functional/specs/text-splitting-filtering.rst <functional/specs/text-splitting-filtering.rst>`_ | `docs/technical/specs/text-splitting-filtering.rst <technical/specs/text-splitting-filtering.rst>`_
+- **Storage & Device Primitives**: `docs/functional/specs/storage-device-primitives.rst <functional/specs/storage-device-primitives.rst>`_ | `docs/technical/specs/storage-device-primitives.rst <technical/specs/storage-device-primitives.rst>`_
+- **Checksums & Base Encodings**: `docs/functional/specs/checksums-base-encodings.rst <functional/specs/checksums-base-encodings.rst>`_ | `docs/technical/specs/checksums-base-encodings.rst <technical/specs/checksums-base-encodings.rst>`_
+- **Text Formatting & Padding**: `docs/functional/specs/text-formatting-padding.rst <functional/specs/text-formatting-padding.rst>`_ | `docs/technical/specs/text-formatting-padding.rst <technical/specs/text-formatting-padding.rst>`_
+- **Execution, Process & System State**: `docs/functional/specs/execution-system-state.rst <functional/specs/execution-system-state.rst>`_ | `docs/technical/specs/execution-system-state.rst <technical/specs/execution-system-state.rst>`_
+

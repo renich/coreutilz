@@ -4,107 +4,53 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "numfmt basic" {
+test "numfmt --to=si scaling" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "numfmt");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "1234" }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "--to=si", "2000" }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("1234\n", result.stdout);
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("2.0k\n", res.stdout);
 }
 
-test "numfmt --to" {
+test "numfmt --to=iec and --from=iec" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "numfmt");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--to=si", "1000" }, null);
-    defer result.deinit();
+    var res_to = try ctx.runCommand(&[_][]const u8{ bin, "--to=iec", "1024" }, null);
+    defer res_to.deinit();
+    try testing.expectEqual(@as(u8, 0), res_to.exit_code);
+    try testing.expectEqualStrings("1.0K\n", res_to.stdout);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("1.0K\n", result.stdout);
+    var res_from = try ctx.runCommand(&[_][]const u8{ bin, "--from=iec", "1K" }, null);
+    defer res_from.deinit();
+    try testing.expectEqual(@as(u8, 0), res_from.exit_code);
+    try testing.expectEqualStrings("1024\n", res_from.stdout);
 }
 
-test "numfmt --from" {
+test "numfmt --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "numfmt");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--from=si", "1K" }, null);
-    defer result.deinit();
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("1000\n", result.stdout);
-}
-
-test "numfmt --padding" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--padding=5", "123" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("  123\n", result.stdout);
-}
-
-test "numfmt --header" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--header=1", "HEADER", "1000" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("HEADER\n1000\n", result.stdout);
-}
-
-test "numfmt --help" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "numfmt --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "numfmt");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "numfmt"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }

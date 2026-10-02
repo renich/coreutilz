@@ -19,7 +19,8 @@ pub fn build(b: *std.Build) void {
         "vdir",      "sort",     "uniq",   "comm",    "shuf",     "tac",       "split",     "csplit",
         "tail",      "tr",       "fold",   "mkfifo",  "mknod",    "chown",     "chgrp",     "df",
         "du",        "cksum",    "b2sum",  "md5sum",  "sha1sum",  "sha224sum", "sha256sum", "sha384sum",
-        "sha512sum", "base64",   "base32", "basenc",
+        "sha512sum", "base64",   "base32", "basenc",  "nl",       "fmt",       "pr",        "expand",
+        "unexpand",  "od",       "ptx",    "numfmt",
     };
 
     const install_step = b.getInstallStep();

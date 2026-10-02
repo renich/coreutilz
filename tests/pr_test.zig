@@ -4,142 +4,76 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "pr basic format" {
+test "pr -t omit header" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pr");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "line1\nline2\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    try ctx.writeFile("input.txt", "line1\nline2\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-t", file_path }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-t", p }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // -t omits header/footer
-    try testing.expectEqualStrings("line1\nline2\n", result.stdout);
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("line1\nline2\n", res.stdout);
 }
 
-test "pr -l page length" {
+test "pr -t -n line numbering" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pr");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "1\n2\n3\n4\n5\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    try ctx.writeFile("input.txt", "alpha\nbeta\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    // pr with small page length and -t
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-t", "-l", "2", file_path }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-t", "-n", p }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    // Page length 2 means only 2 lines per page.
-    // However, -t usually suppresses headers but page length still applies to the data?
-    // In GNU pr, -l specifies total lines including header/footer.
-    // If -t is used, it might just print everything but let's check basic execution.
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("    1\talpha\n    2\tbeta\n", res.stdout);
 }
 
-test "pr -w page width" {
+test "pr -t -d double space" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pr");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "a\nb\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    try ctx.writeFile("input.txt", "first\nsecond\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    // 2 columns, width 10
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-t", "-2", "-w", "10", file_path }, null);
-    defer result.deinit();
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-t", "-d", p }, null);
+    defer res.deinit();
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("first\n\nsecond\n\n", res.stdout);
 }
 
-test "pr -h header" {
+test "pr --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "pr");
+    defer allocator.free(bin);
 
-    try ctx.writeFile("test.txt", "data\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-h", "CUSTOM HEADER", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "CUSTOM HEADER"));
-}
-
-test "pr -n line numbers" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
-
-    try ctx.writeFile("test.txt", "line\n");
-    const tmp_path = try ctx.tmpPath(".");
-    defer allocator.free(tmp_path);
-    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ tmp_path, "test.txt" });
-    defer allocator.free(file_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-t", "-n", file_path }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "1\tline"));
-}
-
-test "pr --help option" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "pr --version option" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "pr");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "pr"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }

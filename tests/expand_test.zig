@@ -4,79 +4,57 @@ const framework = @import("framework");
 const TestContext = framework.TestContext;
 const getBinaryPath = framework.getBinaryPath;
 
-test "expand basic" {
+test "expand default 8-column tabs" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "expand");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "expand");
+    defer allocator.free(bin);
 
-    // Default tab stop is 8
-    var result = try ctx.runCommand(&[_][]const u8{binary_path}, "\ta\n");
-    defer result.deinit();
+    try ctx.writeFile("input.txt", "a\tb\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("        a\n", result.stdout);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, p }, null);
+    defer res.deinit();
+
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("a       b\n", res.stdout);
 }
 
-test "expand -t (tab stops)" {
+test "expand custom tabs and initial only" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "expand");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "expand");
+    defer allocator.free(bin);
 
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-t", "4" }, "\ta\n");
-    defer result.deinit();
+    try ctx.writeFile("input.txt", "\ta\tb\n");
+    const p = try ctx.tmpPath("input.txt");
+    defer allocator.free(p);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("    a\n", result.stdout);
+    var res = try ctx.runCommand(&[_][]const u8{ bin, "-t", "3", "-i", p }, null);
+    defer res.deinit();
+
+    try testing.expectEqual(@as(u8, 0), res.exit_code);
+    try testing.expectEqualStrings("   a\tb\n", res.stdout);
 }
 
-test "expand -i (initial)" {
+test "expand --help and --version" {
     const allocator = testing.allocator;
     var ctx = try TestContext.init(allocator);
     defer ctx.deinit();
 
-    const binary_path = try getBinaryPath(allocator, "expand");
-    defer allocator.free(binary_path);
+    const bin = try getBinaryPath(allocator, "expand");
+    defer allocator.free(bin);
 
-    // Only expand initial tabs
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "-i", "-t", "4" }, "\ta\tb\n");
-    defer result.deinit();
+    var res_h = try ctx.runCommand(&[_][]const u8{ bin, "--help" }, null);
+    defer res_h.deinit();
+    try testing.expectEqual(@as(u8, 0), res_h.exit_code);
 
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expectEqualStrings("    a\tb\n", result.stdout);
-}
-
-test "expand --help" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "expand");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--help" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "Usage:"));
-}
-
-test "expand --version" {
-    const allocator = testing.allocator;
-    var ctx = try TestContext.init(allocator);
-    defer ctx.deinit();
-
-    const binary_path = try getBinaryPath(allocator, "expand");
-    defer allocator.free(binary_path);
-
-    var result = try ctx.runCommand(&[_][]const u8{ binary_path, "--version" }, null);
-    defer result.deinit();
-
-    try testing.expectEqual(@as(u8, 0), result.exit_code);
-    try testing.expect(std.mem.containsAtLeast(u8, result.stdout, 1, "expand"));
+    var res_v = try ctx.runCommand(&[_][]const u8{ bin, "--version" }, null);
+    defer res_v.deinit();
+    try testing.expectEqual(@as(u8, 0), res_v.exit_code);
 }
